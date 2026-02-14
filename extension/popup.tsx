@@ -290,6 +290,16 @@ function SettingsView({ user, onLogout, onBack }: { user: UserData; onLogout: ()
 }
 
 // Main Analysis View
+interface AmazonAlternative {
+  id: string
+  name: string
+  searchQuery: string
+  url: string
+  ecoScore: number
+  keyword: string
+  description: string
+}
+
 function AnalysisView({
   product,
   analysis,
@@ -311,6 +321,43 @@ function AnalysisView({
   onLogin: () => void
   scanStatus: 'idle' | 'saving' | 'saved' | 'error'
 }) {
+  const [searchingAlts, setSearchingAlts] = useState(false)
+  const [amazonAlts, setAmazonAlts] = useState<AmazonAlternative[]>([])
+  const [altsError, setAltsError] = useState<string | null>(null)
+
+  // Find eco alternatives on Amazon
+  const findAlternatives = async () => {
+    if (!product) return
+    
+    setSearchingAlts(true)
+    setAltsError(null)
+    setAmazonAlts([])
+
+    try {
+      const response = await fetch("http://localhost:3001/api/products/alternatives", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productName: product.productTitle,
+          brand: product.brand
+        })
+      })
+
+      const data = await response.json()
+      
+      if (data.success && data.data?.alternatives) {
+        setAmazonAlts(data.data.alternatives)
+      } else {
+        setAltsError("No alternatives found")
+      }
+    } catch (err) {
+      console.error("Error finding alternatives:", err)
+      setAltsError("Failed to search for alternatives")
+    } finally {
+      setSearchingAlts(false)
+    }
+  }
+
   // Not logged in - require login first
   if (!user.userId) {
     return (
@@ -682,6 +729,141 @@ function AnalysisView({
                     </div>
                   </div>
                 ))}
+
+                {/* Find Alternatives Button */}
+                <button
+                  onClick={findAlternatives}
+                  disabled={searchingAlts}
+                  style={{
+                    width: "100%",
+                    marginTop: 16,
+                    padding: "10px 16px",
+                    background: searchingAlts ? "#d1d5db" : "#059669",
+                    color: "white",
+                    border: "none",
+                    borderRadius: 6,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: searchingAlts ? "not-allowed" : "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    transition: "background 0.2s"
+                  }}
+                >
+                  {searchingAlts ? (
+                    <>
+                      <span style={{
+                        width: 14,
+                        height: 14,
+                        border: "2px solid white",
+                        borderTopColor: "transparent",
+                        borderRadius: "50%",
+                        animation: "spin 1s linear infinite",
+                        display: "inline-block"
+                      }} />
+                      Searching...
+                    </>
+                  ) : (
+                    <>
+                      🔍 Find Eco Alternatives on Amazon
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* Amazon Alternatives Results */}
+            {amazonAlts.length > 0 && (
+              <div style={{
+                background: "#ecfdf5",
+                borderRadius: 8,
+                padding: 16,
+                border: "1px solid #10b981",
+                marginTop: analysis.sustainabilityTips?.length ? 12 : 0
+              }}>
+                <h4 style={{ margin: "0 0 12px", fontSize: 14, color: "#065f46" }}>
+                  🌱 Eco Alternatives Found
+                </h4>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {amazonAlts.map((alt) => (
+                    <a
+                      key={alt.id}
+                      href={alt.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "10px 12px",
+                        background: "white",
+                        borderRadius: 6,
+                        textDecoration: "none",
+                        border: "1px solid #d1fae5",
+                        transition: "transform 0.1s, box-shadow 0.1s"
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = "translateY(-2px)"
+                        e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.1)"
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = "none"
+                        e.currentTarget.style.boxShadow = "none"
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{
+                          margin: 0,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: "#065f46",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap"
+                        }}>
+                          {alt.name}
+                        </p>
+                        <p style={{
+                          margin: "2px 0 0",
+                          fontSize: 10,
+                          color: "#6b7280"
+                        }}>
+                          {alt.description}
+                        </p>
+                      </div>
+                      <span style={{
+                        background: "#22c55e",
+                        color: "white",
+                        padding: "4px 8px",
+                        borderRadius: 4,
+                        fontSize: 10,
+                        fontWeight: 600,
+                        marginLeft: 8,
+                        whiteSpace: "nowrap"
+                      }}>
+                        ~{alt.ecoScore}% eco →
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Alternatives Error */}
+            {altsError && (
+              <div style={{
+                background: "#fef2f2",
+                borderRadius: 8,
+                padding: 12,
+                border: "1px solid #fecaca",
+                marginTop: 12,
+                textAlign: "center"
+              }}>
+                <p style={{ margin: 0, fontSize: 12, color: "#dc2626" }}>
+                  {altsError}
+                </p>
               </div>
             )}
           </>
