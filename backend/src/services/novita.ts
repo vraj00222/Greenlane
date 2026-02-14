@@ -11,7 +11,8 @@ const novita = new OpenAI({
   baseURL: 'https://api.novita.ai/openai'  // Correct Novita endpoint
 });
 
-const MODEL = process.env.NOVITA_MODEL || 'deepseek/deepseek-r1';
+// DeepSeek V3 is much faster than R1 (no chain-of-thought reasoning overhead)
+const MODEL = process.env.NOVITA_MODEL || 'deepseek/deepseek_v3';
 
 // Log API key status (not the actual key!)
 console.log(`🔑 Novita API Key configured: ${process.env.NOVITA_API_KEY ? 'Yes (' + process.env.NOVITA_API_KEY.substring(0, 8) + '...)' : 'No'}`);
@@ -82,7 +83,7 @@ Return ONLY valid JSON, no markdown formatting or explanation.`;
         }
       ],
       temperature: 0.3, // Lower temperature for more consistent scoring
-      max_tokens: 2000  // DeepSeek R1 needs more tokens for thinking + response
+      max_tokens: 500   // V3 doesn't need extra tokens for thinking
     });
 
     const content = response.choices[0]?.message?.content || '';

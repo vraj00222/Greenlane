@@ -3,6 +3,14 @@
 
 const API_URL = process.env.PLASMO_PUBLIC_API_URL || "http://localhost:3001"
 
+// In-memory cache for product analyses (persists during browser session)
+interface CachedAnalysis {
+  analysis: object
+  timestamp: number
+}
+const analysisCache = new Map<string, CachedAnalysis>()
+const CACHE_TTL = 30 * 60 * 1000 // 30 minutes
+
 console.log("GreenLane: Background service worker started")
 
 // Generate unique extension ID on first install
@@ -140,6 +148,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case "RECORD_SCAN":
       recordScan(message.productData, message.analysis).then(sendResponse)
+      return true
+
+    case "GET_CACHED_ANALYSIS":
+      // Check cache for existing analysis
+      const cacheKey = message.productUrl
+      const cached = analysisCache.get(cacheKey)
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        console.log("GreenLane: Cache HIT for", cacheKey.substring(0, 50))
+        sendResponse({ cached: true, analysis: cached.analysis })
+      } else {
+        console.log("GreenLane: Cache MISS for", cacheKey.substring(0, 50))
+        sendResponse({ cached: false })
+      }
+      return true
+
+    case "SET_CACHED_ANALYSIS":
+      // Store analysis in cache
+      analysisCache.set(message.productUrl, {
+        analysis: message.analysis,
+        timestamp: Date.now()
+      })
+      console.log("GreenLane: Cached analysis for", message.productUrl.substring(0, 50))
+      sendResponse({ success: true })
       return true
 
     case "LOG_EVENT":

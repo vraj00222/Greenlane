@@ -565,6 +565,7 @@ function IndexPopup() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [user, setUser] = useState<UserData>({ userId: null, email: null, displayName: null })
+  const [isAnalyzing, setIsAnalyzing] = useState(false) // Prevent duplicate clicks
 
   // Load user data on mount
   useEffect(() => {
@@ -575,6 +576,9 @@ function IndexPopup() {
 
   // Analyze product
   const analyzeProduct = async () => {
+    // Prevent duplicate clicks while analyzing
+    if (isAnalyzing) return
+    setIsAnalyzing(true)
     setLoading(true)
     setError(null)
 
@@ -582,12 +586,14 @@ function IndexPopup() {
       const activeTab = tabs[0]
       if (!activeTab?.id) {
         setLoading(false)
+        setIsAnalyzing(false)
         setError("No active tab found")
         return
       }
 
       if (!activeTab.url?.includes("amazon.com")) {
         setLoading(false)
+        setIsAnalyzing(false)
         setError(null)
         setProduct(null)
         return
@@ -596,42 +602,76 @@ function IndexPopup() {
       chrome.tabs.sendMessage(activeTab.id, { type: "GET_PRODUCT_DATA" }, async (response) => {
         if (chrome.runtime.lastError) {
           setLoading(false)
+          setIsAnalyzing(false)
           setError("Could not read page. Try refreshing.")
           return
         }
 
         if (response?.product) {
           setProduct(response.product)
-          try {
-            const apiUrl = process.env.PLASMO_PUBLIC_API_URL || "http://localhost:3001"
-            const res = await fetch(`${apiUrl}/api/analyze-product`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(response.product)
-            })
-            
-            if (!res.ok) throw new Error("API error")
-            
-            const data = await res.json()
-            setAnalysis(data.analysis)
+          
+          // Use product URL as cache key
+          const productUrl = activeTab.url || ""
+          
+          // Check cache first for faster response
+          chrome.runtime.sendMessage(
+            { type: "GET_CACHED_ANALYSIS", productUrl },
+            async (cacheResponse) => {
+              try {
+                let analysisData
+                
+                if (cacheResponse?.cached) {
+                  // Use cached analysis - instant!
+                  console.log("Using cached analysis")
+                  analysisData = cacheResponse.analysis
+                } else {
+                  // Fetch from API
+                  const apiUrl = process.env.PLASMO_PUBLIC_API_URL || "http://localhost:3001"
+                  const res = await fetch(`${apiUrl}/api/analyze-product`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(response.product)
+                  })
+                  
+                  if (!res.ok) throw new Error("API error")
+                  
+                  const data = await res.json()
+                  analysisData = data.analysis
+                  
+                  // Cache for future requests
+                  chrome.runtime.sendMessage({
+                    type: "SET_CACHED_ANALYSIS",
+                    productUrl,
+                    analysis: analysisData
+                  })
+                }
+                
+                setAnalysis(analysisData)
 
-            // Record scan if user is logged in
-            if (user.userId) {
-              chrome.runtime.sendMessage({
-                type: "RECORD_SCAN",
-                productData: response.product,
-                analysis: data.analysis
-              })
+                // Record scan if user is logged in
+                if (user.userId) {
+                  chrome.runtime.sendMessage({
+                    type: "RECORD_SCAN",
+                    productData: response.product,
+                    analysis: analysisData
+                  })
+                }
+              } catch (err) {
+                console.error("API Error:", err)
+                setError("Failed to analyze. Is backend running?")
+              } finally {
+                setLoading(false)
+                setIsAnalyzing(false)
+              }
             }
-          } catch (err) {
-            console.error("API Error:", err)
-            setError("Failed to analyze. Is backend running?")
-          }
+          )
+          return // Loading state handled in cache callback
         } else {
           setError(null)
           setProduct(null)
         }
         setLoading(false)
+        setIsAnalyzing(false)
       })
     })
   }
