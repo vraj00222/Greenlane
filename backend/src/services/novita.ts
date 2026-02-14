@@ -1,13 +1,23 @@
 import OpenAI from 'openai';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Get directory path for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load .env from backend directory
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 // Initialize OpenAI client with Novita AI base URL
-// Novita uses a different endpoint format
+// Docs: https://novita.ai/docs/guides/llm-api#api-integration
 const novita = new OpenAI({
   apiKey: process.env.NOVITA_API_KEY || '',
-  baseURL: 'https://api.novita.ai/v3/openai'
+  baseURL: 'https://api.novita.ai/openai'  // Correct Novita endpoint
 });
 
-const MODEL = process.env.NOVITA_MODEL || 'deepseek/deepseek-r1-0528';
+const MODEL = process.env.NOVITA_MODEL || 'deepseek/deepseek-r1';
 
 // Log API key status (not the actual key!)
 console.log(`🔑 Novita API Key configured: ${process.env.NOVITA_API_KEY ? 'Yes (' + process.env.NOVITA_API_KEY.substring(0, 8) + '...)' : 'No'}`);
