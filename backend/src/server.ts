@@ -2,6 +2,14 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { analyzeProductWithAI } from './services/novita';
+import { connectDatabase, getConnectionStatus } from './config/database';
+import { Achievement } from './models';
+
+// Import routes
+import usersRouter from './routes/users';
+import scansRouter from './routes/scans';
+import achievementsRouter from './routes/achievements';
+import productsRouter from './routes/products';
 
 // Load environment variables
 dotenv.config();
@@ -11,8 +19,8 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors({
-  origin: ['chrome-extension://*', 'http://localhost:3000', 'http://localhost:3001'],
-  methods: ['GET', 'POST', 'OPTIONS'],
+  origin: ['chrome-extension://*', 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'],
+  methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
@@ -62,16 +70,24 @@ interface AnalysisResult {
 
 // Health check
 app.get('/health', (_req: Request, res: Response) => {
+  const dbStatus = getConnectionStatus();
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    version: '0.1.0',
+    version: '0.2.0',
+    database: dbStatus,
     ai: {
       provider: 'Novita AI',
       model: process.env.NOVITA_MODEL || 'deepseek/deepseek-r1-0528'
     }
   });
 });
+
+// Mount API routes
+app.use('/api/users', usersRouter);
+app.use('/api/scans', scansRouter);
+app.use('/api/achievements', achievementsRouter);
+app.use('/api/products', productsRouter);
 
 // Analyze product sustainability
 app.post('/api/analyze-product', async (req: Request, res: Response) => {
@@ -244,21 +260,61 @@ function getMockAlternatives(product: ProductData, currentScore: number): Altern
 // START SERVER
 // ============================================
 
-app.listen(PORT, () => {
-  console.log(`
+async function startServer() {
+  try {
+    // Connect to MongoDB
+    await connectDatabase();
+    
+    // Seed achievements if needed
+    const achievementCount = await Achievement.countDocuments();
+    if (achievementCount === 0) {
+      console.log('📜 Seeding achievements...');
+      await Achievement.seedAchievements();
+    }
+
+    // Start Express server
+    app.listen(PORT, () => {
+      console.log(`
 🌿 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   GreenLane API Server
+   GreenLane API Server v0.2.0
    
    🚀 Running on: http://localhost:${PORT}
    📊 Health:     http://localhost:${PORT}/health
+   🗄️  Database:   MongoDB (localhost:27017/greenlane)
    🤖 AI Model:   ${process.env.NOVITA_MODEL || 'deepseek/deepseek-r1-0528'}
    
-   Endpoints:
-   • GET  /health              - Health check
-   • POST /api/analyze-product - Analyze product sustainability
-   • POST /api/log-choice      - Log user shopping choice
+   API Endpoints:
+   ├─ GET  /health                    - Health check
+   ├─ POST /api/analyze-product       - AI sustainability analysis
+   ├─ POST /api/log-choice            - Log user choice
+   │
+   ├─ Users
+   │  ├─ GET    /api/users/:id        - Get user
+   │  ├─ POST   /api/users            - Create/get user
+   │  ├─ PATCH  /api/users/:id        - Update user
+   │  └─ GET    /api/users/leaderboard/top - Leaderboard
+   │
+   ├─ Scans
+   │  ├─ POST   /api/scans            - Record scan
+   │  ├─ GET    /api/scans/user/:id   - User history
+   │  └─ PATCH  /api/scans/:id/choice - Update choice
+   │
+   ├─ Achievements
+   │  ├─ GET    /api/achievements     - All achievements
+   │  └─ GET    /api/achievements/user/:id - User achievements
+   │
+   └─ Products
+      ├─ GET    /api/products/:id     - Get product
+      └─ GET    /api/products/top/sustainable - Top products
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 🌿
-  `);
-});
+      `);
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+startServer();
 
 export default app;
