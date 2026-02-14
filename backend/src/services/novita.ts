@@ -88,15 +88,23 @@ Return ONLY valid JSON, no markdown formatting or explanation.`;
         }
       ],
       temperature: 0.3, // Lower temperature for more consistent scoring
-      max_tokens: 1000
+      max_tokens: 2000  // DeepSeek R1 needs more tokens for thinking + response
     });
 
     const content = response.choices[0]?.message?.content || '';
     console.log(`📝 AI Response received (${content.length} chars)`);
 
     // Parse the JSON response
-    // Handle potential markdown code blocks
+    // DeepSeek R1 returns <think>...</think> followed by the actual response
     let jsonStr = content.trim();
+    
+    // Remove DeepSeek thinking tags
+    if (jsonStr.includes('</think>')) {
+      jsonStr = jsonStr.split('</think>').pop() || jsonStr;
+    }
+    
+    // Handle potential markdown code blocks
+    jsonStr = jsonStr.trim();
     if (jsonStr.startsWith('```json')) {
       jsonStr = jsonStr.slice(7);
     }
@@ -107,6 +115,14 @@ Return ONLY valid JSON, no markdown formatting or explanation.`;
       jsonStr = jsonStr.slice(0, -3);
     }
     jsonStr = jsonStr.trim();
+
+    // Try to find JSON in the response
+    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      jsonStr = jsonMatch[0];
+    }
+
+    console.log(`🔍 Parsing JSON: ${jsonStr.substring(0, 100)}...`);
 
     const analysis = JSON.parse(jsonStr);
 
