@@ -298,7 +298,8 @@ function AnalysisView({
   user,
   onSettings,
   onRetry,
-  onLogin
+  onLogin,
+  scanStatus
 }: {
   product: ProductData | null
   analysis: AnalysisResult | null
@@ -308,7 +309,33 @@ function AnalysisView({
   onSettings: () => void
   onRetry: () => void
   onLogin: () => void
+  scanStatus: 'idle' | 'saving' | 'saved' | 'error'
 }) {
+  // Not logged in - require login first
+  if (!user.userId) {
+    return (
+      <div style={containerStyle}>
+        <div style={headerStyle}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 24 }}>🌿</span>
+            <span style={{ fontSize: 18, fontWeight: 600 }}>GreenLane</span>
+          </div>
+          <SettingsButton onClick={onSettings} />
+        </div>
+        <div style={{ ...contentStyle, textAlign: "center", paddingTop: 30 }}>
+          <span style={{ fontSize: 48, display: "block", marginBottom: 16 }}>🔐</span>
+          <h3 style={{ margin: "0 0 8px", color: "#374151" }}>Sign In Required</h3>
+          <p style={{ color: "#6b7280", fontSize: 14, margin: "0 0 20px" }}>
+            Sign in to analyze products and track your sustainability progress.
+          </p>
+          <button onClick={onLogin} style={buttonStyle}>
+            Sign In to Start
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   // Loading state
   if (loading) {
     return (
@@ -337,7 +364,7 @@ function AnalysisView({
     )
   }
 
-  // No product detected
+  // No product detected (not on Amazon page)
   if (!product) {
     return (
       <div style={containerStyle}>
@@ -354,11 +381,9 @@ function AnalysisView({
           <p style={{ color: "#6b7280", fontSize: 14, margin: 0 }}>
             Visit an Amazon product page to analyze its sustainability.
           </p>
-          {!user.userId && (
-            <button onClick={onLogin} style={{ ...buttonStyle, marginTop: 24 }}>
-              Sign In to Track Progress
-            </button>
-          )}
+          <p style={{ color: "#9ca3af", fontSize: 12, marginTop: 12 }}>
+            Signed in as {user.email}
+          </p>
         </div>
       </div>
     )
@@ -385,9 +410,37 @@ function AnalysisView({
     )
   }
 
+  // Product loaded but analysis still pending
+  if (!analysis) {
+    return (
+      <div style={containerStyle}>
+        <div style={headerStyle}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 24 }}>🌿</span>
+            <span style={{ fontSize: 18, fontWeight: 600 }}>GreenLane</span>
+          </div>
+          <SettingsButton onClick={onSettings} />
+        </div>
+        <div style={{ ...contentStyle, textAlign: "center", paddingTop: 40 }}>
+          <div style={{ 
+            width: 40, 
+            height: 40, 
+            border: "4px solid #e5e7eb",
+            borderTopColor: "#059669",
+            borderRadius: "50%",
+            animation: "spin 1s linear infinite",
+            margin: "0 auto 16px"
+          }} />
+          <p style={{ color: "#6b7280" }}>Analyzing sustainability...</p>
+          <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+        </div>
+      </div>
+    )
+  }
+
   // Main analysis view
-  const scoreColor = analysis ? getScoreColor(analysis.greenScore) : "#6b7280"
-  const scoreLabel = analysis ? getScoreLabel(analysis.greenScore) : ""
+  const scoreColor = getScoreColor(analysis.greenScore)
+  const scoreLabel = getScoreLabel(analysis.greenScore)
 
   return (
     <div style={containerStyle}>
@@ -475,6 +528,22 @@ function AnalysisView({
                     Sign in
                   </button>
                   {" "}to save this scan
+                </p>
+              )}
+              {user.userId && scanStatus === 'saving' && (
+                <p style={{ fontSize: 12, color: "#9ca3af", marginTop: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+                  <span style={{ display: "inline-block", width: 12, height: 12, border: "2px solid #059669", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite" }}></span>
+                  Saving to dashboard...
+                </p>
+              )}
+              {user.userId && scanStatus === 'saved' && (
+                <p style={{ fontSize: 12, color: "#059669", marginTop: 8 }}>
+                  ✓ Saved to your dashboard
+                </p>
+              )}
+              {user.userId && scanStatus === 'error' && (
+                <p style={{ fontSize: 12, color: "#ef4444", marginTop: 8 }}>
+                  ✗ Failed to save scan
                 </p>
               )}
             </div>
@@ -631,13 +700,35 @@ function IndexPopup() {
   const [error, setError] = useState<string | null>(null)
   const [user, setUser] = useState<UserData>({ userId: null, email: null, displayName: null })
   const [isAnalyzing, setIsAnalyzing] = useState(false) // Prevent duplicate clicks
+  const [scanStatus, setScanStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [userLoaded, setUserLoaded] = useState(false)
 
   // Load user data on mount
   useEffect(() => {
     chrome.runtime.sendMessage({ type: "GET_USER_DATA" }, (response) => {
-      if (response) setUser(response)
+      if (response) {
+        setUser(response)
+        // If logged in, start analyzing
+        if (response.userId) {
+          setUserLoaded(true)
+        } else {
+          // Not logged in - don't show loading spinner
+          setLoading(false)
+          setUserLoaded(true)
+        }
+      } else {
+        setLoading(false)
+        setUserLoaded(true)
+      }
     })
   }, [])
+
+  // Start analysis when user becomes logged in
+  useEffect(() => {
+    if (userLoaded && user.userId) {
+      analyzeProduct()
+    }
+  }, [userLoaded, user.userId])
 
   // Analyze product
   const analyzeProduct = async () => {
@@ -678,10 +769,28 @@ function IndexPopup() {
           // Use product URL as cache key
           const productUrl = activeTab.url || ""
           
+          // Safety timeout - if cache check hangs, proceed with API call
+          let callbackReceived = false
+          const timeoutId = setTimeout(() => {
+            if (!callbackReceived) {
+              console.log("GreenLane: Cache callback timed out, fetching from API")
+              fetchAnalysis(response.product, productUrl)
+            }
+          }, 500)
+          
           // Check cache first for faster response
           chrome.runtime.sendMessage(
             { type: "GET_CACHED_ANALYSIS", productUrl },
             async (cacheResponse) => {
+              callbackReceived = true
+              clearTimeout(timeoutId)
+              
+              if (chrome.runtime.lastError) {
+                console.log("GreenLane: Cache error, fetching from API")
+                fetchAnalysis(response.product, productUrl)
+                return
+              }
+              
               try {
                 let analysisData
                 
@@ -689,48 +798,89 @@ function IndexPopup() {
                   // Use cached analysis - instant!
                   console.log("Using cached analysis")
                   analysisData = cacheResponse.analysis
+                  setAnalysis(analysisData)
+                  setLoading(false)
+                  setIsAnalyzing(false)
+                  
+                  // Record scan if user is logged in
+                  if (user.userId) {
+                    setScanStatus('saving')
+                    chrome.runtime.sendMessage({
+                      type: "RECORD_SCAN",
+                      productData: response.product,
+                      analysis: analysisData
+                    }, (recordResponse) => {
+                      if (recordResponse?.success) {
+                        setScanStatus('saved')
+                      } else {
+                        setScanStatus('error')
+                      }
+                    })
+                  }
                 } else {
                   // Fetch from API
-                  const apiUrl = process.env.PLASMO_PUBLIC_API_URL || "http://localhost:3001"
-                  const res = await fetch(`${apiUrl}/api/analyze-product`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(response.product)
-                  })
-                  
-                  if (!res.ok) throw new Error("API error")
-                  
-                  const data = await res.json()
-                  analysisData = data.analysis
-                  
-                  // Cache for future requests
-                  chrome.runtime.sendMessage({
-                    type: "SET_CACHED_ANALYSIS",
-                    productUrl,
-                    analysis: analysisData
-                  })
-                }
-                
-                setAnalysis(analysisData)
-
-                // Record scan if user is logged in
-                if (user.userId) {
-                  chrome.runtime.sendMessage({
-                    type: "RECORD_SCAN",
-                    productData: response.product,
-                    analysis: analysisData
-                  })
+                  fetchAnalysis(response.product, productUrl)
                 }
               } catch (err) {
-                console.error("API Error:", err)
-                setError("Failed to analyze. Is backend running?")
-              } finally {
-                setLoading(false)
-                setIsAnalyzing(false)
+                console.error("Cache error:", err)
+                fetchAnalysis(response.product, productUrl)
               }
             }
           )
-          return // Loading state handled in cache callback
+          
+          // Helper function to fetch from API
+          async function fetchAnalysis(productData: ProductData, cacheKey: string) {
+            try {
+              const apiUrl = process.env.PLASMO_PUBLIC_API_URL || "http://localhost:3001"
+              const res = await fetch(`${apiUrl}/api/analyze-product`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(productData)
+              })
+              
+              if (!res.ok) throw new Error("API error")
+              
+              const data = await res.json()
+              const analysisData = data.analysis
+              
+              // Cache for future requests
+              chrome.runtime.sendMessage({
+                type: "SET_CACHED_ANALYSIS",
+                productUrl: cacheKey,
+                analysis: analysisData
+              })
+              
+              setAnalysis(analysisData)
+
+              // Record scan if user is logged in
+              if (user.userId) {
+                setScanStatus('saving')
+                chrome.runtime.sendMessage({
+                  type: "RECORD_SCAN",
+                  productData,
+                  analysis: analysisData
+                }, (recordResponse) => {
+                  if (recordResponse?.success) {
+                    setScanStatus('saved')
+                    console.log('GreenLane: Scan saved successfully')
+                  } else {
+                    setScanStatus('error')
+                    console.error('GreenLane: Failed to save scan:', recordResponse?.error)
+                  }
+                })
+              } else {
+                setScanStatus('idle')
+              }
+            } catch (err) {
+              console.error("API Error:", err)
+              setError("Failed to analyze. Is backend running?")
+            } finally {
+              setLoading(false)
+              setIsAnalyzing(false)
+            }
+          }
+          
+          return // Loading state handled in callbacks
         } else {
           setError(null)
           setProduct(null)
@@ -741,11 +891,6 @@ function IndexPopup() {
     })
   }
 
-  // Initial load
-  useEffect(() => {
-    analyzeProduct()
-  }, [])
-
   // Handle login
   const handleLogin = async (email: string, displayName: string) => {
     return new Promise<void>((resolve, reject) => {
@@ -753,6 +898,9 @@ function IndexPopup() {
         if (response?.success) {
           setUser({ userId: response.userId, email, displayName })
           setView("main")
+          // Trigger analysis after login
+          setLoading(true)
+          setTimeout(() => analyzeProduct(), 100)
           resolve()
         } else {
           reject(new Error(response?.error || "Login failed"))
@@ -788,6 +936,7 @@ function IndexPopup() {
       onSettings={() => setView("settings")}
       onRetry={analyzeProduct}
       onLogin={() => setView("login")}
+      scanStatus={scanStatus}
     />
   )
 }
