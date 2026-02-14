@@ -729,49 +729,52 @@ function AnalysisView({
                     </div>
                   </div>
                 ))}
-
-                {/* Find Alternatives Button */}
-                <button
-                  onClick={findAlternatives}
-                  disabled={searchingAlts}
-                  style={{
-                    width: "100%",
-                    marginTop: 16,
-                    padding: "10px 16px",
-                    background: searchingAlts ? "#d1d5db" : "#059669",
-                    color: "white",
-                    border: "none",
-                    borderRadius: 6,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: searchingAlts ? "not-allowed" : "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                    transition: "background 0.2s"
-                  }}
-                >
-                  {searchingAlts ? (
-                    <>
-                      <span style={{
-                        width: 14,
-                        height: 14,
-                        border: "2px solid white",
-                        borderTopColor: "transparent",
-                        borderRadius: "50%",
-                        animation: "spin 1s linear infinite",
-                        display: "inline-block"
-                      }} />
-                      Searching...
-                    </>
-                  ) : (
-                    <>
-                      🔍 Find Eco Alternatives on Amazon
-                    </>
-                  )}
-                </button>
               </div>
+            )}
+
+            {/* Find Eco Alternatives Button - Always show after analysis */}
+            {amazonAlts.length === 0 && (
+              <button
+                onClick={findAlternatives}
+                disabled={searchingAlts}
+                style={{
+                  width: "100%",
+                  marginTop: 16,
+                  padding: "12px 16px",
+                  background: searchingAlts ? "#d1d5db" : "#059669",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 8,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: searchingAlts ? "not-allowed" : "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  transition: "background 0.2s",
+                  boxShadow: "0 2px 8px rgba(5, 150, 105, 0.3)"
+                }}
+              >
+                {searchingAlts ? (
+                  <>
+                    <span style={{
+                      width: 16,
+                      height: 16,
+                      border: "2px solid white",
+                      borderTopColor: "transparent",
+                      borderRadius: "50%",
+                      animation: "spin 1s linear infinite",
+                      display: "inline-block"
+                    }} />
+                    Searching Amazon...
+                  </>
+                ) : (
+                  <>
+                    🔍 Find Other Sustainable Products
+                  </>
+                )}
+              </button>
             )}
 
             {/* Amazon Alternatives Results */}
