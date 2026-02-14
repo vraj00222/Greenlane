@@ -125,11 +125,25 @@ export async function findEcoAlternatives(
     }
 
     const data = await response.json();
-    const alternatives = data.results || [];
+    
+    // Handle various response structures from VectorAI
+    const alternatives = (data?.results || data?.data || data?.alternatives || []) as SearchResult[];
+    
+    // If no results from VectorAI, use fallback
+    if (!alternatives || alternatives.length === 0) {
+      console.log('📭 VectorAI returned no results, using fallback');
+      const fallbackAlternatives = getFallbackAlternatives(category, limit);
+      return {
+        alternatives: fallbackAlternatives,
+        tips: tips.slice(0, 2),
+        hasEcoAlternatives: fallbackAlternatives.length > 0
+      };
+    }
+    
     return {
       alternatives,
-      tips: alternatives.length === 0 ? tips : tips.slice(0, 1),
-      hasEcoAlternatives: alternatives.length > 0
+      tips: tips.slice(0, 1),
+      hasEcoAlternatives: true
     };
   } catch (error) {
     console.warn('⚠️ VectorAI not available, using fallback alternatives');
