@@ -141,11 +141,12 @@ app.post('/api/analyze-product', async (req: Request, res: Response) => {
     // Get eco-friendly alternatives using VectorAI semantic search
     const category = detectCategory(product.productTitle);
     let alternatives: Alternative[] = [];
+    let sustainabilityTips: { title: string; description: string; icon: string }[] = [];
     
     // Only suggest alternatives if product isn't already very sustainable
     if (analysis.greenScore < 80) {
       const results = await findEcoAlternatives(product.productTitle, category, 3);
-      alternatives = results.map(r => ({
+      alternatives = results.alternatives.map(r => ({
         id: r.product.id,
         name: r.product.name,
         brand: r.product.brand,
@@ -156,6 +157,7 @@ app.post('/api/analyze-product', async (req: Request, res: Response) => {
         description: r.product.description,
         similarity: r.similarity
       }));
+      sustainabilityTips = results.tips;
     }
 
     res.json({
@@ -163,6 +165,8 @@ app.post('/api/analyze-product', async (req: Request, res: Response) => {
       product,
       analysis,
       alternatives,
+      sustainabilityTips,
+      hasEcoAlternatives: alternatives.length > 0,
       category,
       analyzedAt: new Date().toISOString()
     });

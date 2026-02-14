@@ -29,6 +29,54 @@ interface SearchResult {
   similarity: number;
 }
 
+interface SustainabilityTip {
+  title: string;
+  description: string;
+  icon: string;
+}
+
+interface AlternativesResponse {
+  alternatives: SearchResult[];
+  tips: SustainabilityTip[];
+  hasEcoAlternatives: boolean;
+}
+
+// Categories where sustainable alternatives are limited
+const LIMITED_ALTERNATIVES_CATEGORIES = ['electronics', 'gaming', 'computers', 'gpu', 'tech'];
+
+/**
+ * Get sustainability tips for products without eco alternatives
+ */
+function getSustainabilityTips(category: string, productName: string): SustainabilityTip[] {
+  const title = productName.toLowerCase();
+  
+  // GPU/Graphics card specific tips
+  if (title.includes('gpu') || title.includes('graphics') || title.includes('rtx') || title.includes('nvidia') || title.includes('amd radeon')) {
+    return [
+      { icon: '⚡', title: 'Optimize Power Settings', description: 'Use power-saving mode when not gaming to reduce energy consumption by up to 40%' },
+      { icon: '♻️', title: 'Recycle Old Hardware', description: 'When upgrading, recycle your old GPU through Best Buy or manufacturer take-back programs' },
+      { icon: '🔄', title: 'Extend Lifespan', description: 'Regular cleaning and good airflow can extend GPU life by 2-3 years, reducing e-waste' },
+      { icon: '💡', title: 'Buy Used/Refurbished', description: 'Consider certified refurbished GPUs to reduce manufacturing impact' }
+    ];
+  }
+  
+  // General electronics tips
+  if (LIMITED_ALTERNATIVES_CATEGORIES.includes(category)) {
+    return [
+      { icon: '🔌', title: 'Energy Efficiency', description: 'Look for ENERGY STAR certified products that use 10-50% less energy' },
+      { icon: '🔧', title: 'Choose Repairable', description: 'Check iFixit repairability scores - choose devices you can repair and upgrade' },
+      { icon: '📦', title: 'Proper Disposal', description: 'Use e-waste recycling programs - many contain hazardous materials' },
+      { icon: '⏳', title: 'Maximize Lifespan', description: 'Keep devices longer by maintaining them well and avoiding unnecessary upgrades' }
+    ];
+  }
+  
+  // Default tips for any category
+  return [
+    { icon: '🌱', title: 'Consider Impact', description: 'Research the brand\'s sustainability practices before purchasing' },
+    { icon: '📊', title: 'Quality Over Quantity', description: 'Invest in durable products that last longer and reduce waste' }
+  ];
+}
+
 /**
  * Search for eco-friendly alternatives using vector similarity
  */
@@ -36,7 +84,22 @@ export async function findEcoAlternatives(
   productName: string,
   category: string,
   limit: number = 3
-): Promise<SearchResult[]> {
+): Promise<AlternativesResponse> {
+  // Check if this category has limited alternatives
+  const hasLimitedAlternatives = LIMITED_ALTERNATIVES_CATEGORIES.includes(category) ||
+    productName.toLowerCase().match(/gpu|graphics|rtx|gtx|radeon|nvidia|amd|processor|cpu|ram|ssd/);
+  
+  const tips = getSustainabilityTips(category, productName);
+  
+  if (hasLimitedAlternatives) {
+    console.log(`ℹ️ Category "${category}" has limited eco alternatives, providing tips instead`);
+    return {
+      alternatives: [],
+      tips,
+      hasEcoAlternatives: false
+    };
+  }
+
   try {
     console.log(`🔍 VectorAI: Searching for eco alternatives to "${productName}" in ${category}`);
     
@@ -53,14 +116,29 @@ export async function findEcoAlternatives(
 
     if (!response.ok) {
       console.warn('⚠️ VectorAI search failed, using fallback');
-      return getFallbackAlternatives(category, limit);
+      const fallbackAlternatives = getFallbackAlternatives(category, limit);
+      return {
+        alternatives: fallbackAlternatives,
+        tips: tips.slice(0, 2), // Include a couple tips as bonus
+        hasEcoAlternatives: fallbackAlternatives.length > 0
+      };
     }
 
     const data = await response.json();
-    return data.results || [];
+    const alternatives = data.results || [];
+    return {
+      alternatives,
+      tips: alternatives.length === 0 ? tips : tips.slice(0, 1),
+      hasEcoAlternatives: alternatives.length > 0
+    };
   } catch (error) {
     console.warn('⚠️ VectorAI not available, using fallback alternatives');
-    return getFallbackAlternatives(category, limit);
+    const fallbackAlternatives = getFallbackAlternatives(category, limit);
+    return {
+      alternatives: fallbackAlternatives,
+      tips: tips.slice(0, 2),
+      hasEcoAlternatives: fallbackAlternatives.length > 0
+    };
   }
 }
 

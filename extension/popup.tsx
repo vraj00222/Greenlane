@@ -22,6 +22,12 @@ interface Alternative {
   similarity?: number
 }
 
+interface SustainabilityTip {
+  title: string
+  description: string
+  icon: string
+}
+
 interface AnalysisResult {
   greenScore: number
   reasons: string[]
@@ -29,6 +35,8 @@ interface AnalysisResult {
   negatives: string[]
   recommendation: string
   alternatives: Alternative[]
+  sustainabilityTips?: SustainabilityTip[]
+  hasEcoAlternatives?: boolean
 }
 
 interface UserData {
@@ -568,6 +576,41 @@ function AnalysisView({
                     >
                       {alt.ecoScore}% eco
                     </a>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Sustainability Tips (when no alternatives) */}
+            {analysis.sustainabilityTips && analysis.sustainabilityTips.length > 0 && !analysis.alternatives?.length && (
+              <div style={{
+                background: "#fef3c7",
+                borderRadius: 8,
+                padding: 16,
+                border: "1px solid #fcd34d"
+              }}>
+                <h4 style={{ margin: "0 0 12px", fontSize: 14, color: "#92400e" }}>
+                  💡 Sustainability Tips
+                </h4>
+                <p style={{ margin: "0 0 12px", fontSize: 11, color: "#78350f" }}>
+                  No direct eco alternatives available. Here's how to be more sustainable:
+                </p>
+                {analysis.sustainabilityTips.slice(0, 3).map((tip, i) => (
+                  <div key={i} style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    marginBottom: i < 2 ? 10 : 0,
+                    gap: 8
+                  }}>
+                    <span style={{ fontSize: 16 }}>{tip.icon}</span>
+                    <div>
+                      <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: "#78350f" }}>
+                        {tip.title}
+                      </p>
+                      <p style={{ margin: "2px 0 0", fontSize: 11, color: "#92400e" }}>
+                        {tip.description}
+                      </p>
+                    </div>
                   </div>
                 ))}
               </div>
