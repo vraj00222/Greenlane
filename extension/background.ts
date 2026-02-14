@@ -55,14 +55,15 @@ async function registerUser(email: string, displayName: string): Promise<{ succe
 
     const data = await response.json()
     
-    // Store user info locally
+    // Store user info locally - API returns { success, data: { id, email, displayName } }
+    const user = data.data
     await chrome.storage.local.set({
-      userId: data.user.id,
-      userEmail: data.user.email,
-      userDisplayName: data.user.displayName
+      userId: user.id,
+      userEmail: user.email,
+      userDisplayName: user.displayName
     })
 
-    return { success: true, userId: data.user.id }
+    return { success: true, userId: user.id }
   } catch (error) {
     console.error("GreenLane: Registration error:", error)
     return { success: false, error: error instanceof Error ? error.message : "Unknown error" }
