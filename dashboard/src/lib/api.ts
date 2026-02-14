@@ -92,6 +92,11 @@ export interface Achievement {
   earned: boolean;
   unlockedAt: string | null;
   progress: number;
+  requirement?: {
+    type: 'scans' | 'score' | 'carbon' | 'streak';
+    value: number;
+  };
+  currentValue?: number;
 }
 
 export interface LeaderboardEntry {

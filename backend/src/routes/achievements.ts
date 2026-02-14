@@ -76,6 +76,18 @@ router.get('/user/:userId', async (req: Request, res: Response) => {
         }
       }
 
+      // Get current value for display
+      let currentValue = 0;
+      if (user) {
+        const { type } = achievement.requirement;
+        switch (type) {
+          case 'scans': currentValue = user.stats.totalScans; break;
+          case 'score': currentValue = user.stats.averageScore; break;
+          case 'carbon': currentValue = user.stats.carbonSaved; break;
+          case 'streak': currentValue = user.stats.currentStreak; break;
+        }
+      }
+
       return {
         id: achievement._id,
         code: achievement.code,
@@ -89,6 +101,11 @@ router.get('/user/:userId', async (req: Request, res: Response) => {
         earned: earnedIds.has(achievement._id.toString()),
         unlockedAt: userAchievement?.unlockedAt || null,
         progress: earnedIds.has(achievement._id.toString()) ? 100 : Math.round(progress),
+        requirement: {
+          type: achievement.requirement.type,
+          value: achievement.requirement.value,
+        },
+        currentValue: earnedIds.has(achievement._id.toString()) ? achievement.requirement.value : currentValue,
       };
     });
 

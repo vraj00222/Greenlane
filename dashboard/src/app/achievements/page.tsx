@@ -144,8 +144,17 @@ export default function AchievementsPage() {
                 <div className="mt-4 space-y-2">
                   <Progress value={achievement.progress} className="h-2" />
                   <div className="flex justify-between text-[11px] text-muted-foreground">
-                    <span>Progress</span>
-                    <span className="font-medium">{achievement.progress}%</span>
+                    <span>
+                      {achievement.requirement?.type === 'scans' && 'Scans'}
+                      {achievement.requirement?.type === 'score' && 'Avg Score'}
+                      {achievement.requirement?.type === 'streak' && 'Streak Days'}
+                      {achievement.requirement?.type === 'carbon' && 'Carbon Saved'}
+                    </span>
+                    <span className="font-medium">
+                      {achievement.currentValue ?? 0}/{achievement.requirement?.value ?? '?'}
+                      {achievement.requirement?.type === 'score' && '%'}
+                      {achievement.requirement?.type === 'carbon' && ' kg'}
+                    </span>
                   </div>
                 </div>
               )}
