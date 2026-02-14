@@ -1,8 +1,9 @@
 import { Router, Request, Response } from 'express';
-import { Scan, User, Product, Achievement, UserAchievement } from '../models';
+import type { Router as RouterType } from 'express';
+import { Scan, User, Product, Achievement, UserAchievement } from '../models/index.js';
 import mongoose from 'mongoose';
 
-const router = Router();
+const router: RouterType = Router();
 
 // ============================================
 // Helper: Check and award achievements

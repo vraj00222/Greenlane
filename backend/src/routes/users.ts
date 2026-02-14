@@ -1,8 +1,9 @@
 import { Router, Request, Response } from 'express';
-import { User, IUser } from '../models';
+import type { Router as RouterType } from 'express';
+import { User, IUser } from '../models/index.js';
 import mongoose from 'mongoose';
 
-const router = Router();
+const router: RouterType = Router();
 
 // ============================================
 // GET /api/users/:id - Get user by ID

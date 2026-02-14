@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
-import { Product } from '../models';
+import type { Router as RouterType } from 'express';
+import { Product } from '../models/index.js';
 
-const router = Router();
+const router: RouterType = Router();
 
 // ============================================
 // GET /api/products/:id - Get product by ID

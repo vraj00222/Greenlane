@@ -97,7 +97,7 @@ const ProductSchema = new Schema<IProduct>({
 }, {
   timestamps: true,
   toJSON: {
-    transform: (_doc, ret) => {
+    transform: (_doc: any, ret: any) => {
       ret.id = ret._id.toString();
       delete ret._id;
       delete ret.__v;
@@ -110,7 +110,7 @@ const ProductSchema = new Schema<IProduct>({
 // Indexes
 // ============================================
 
-ProductSchema.index({ url: 1 }, { unique: true });
+// Note: url index is already created by unique: true on the field
 ProductSchema.index({ 'analysis.greenScore': -1 });
 ProductSchema.index({ category: 1 });
 ProductSchema.index({ scanCount: -1 });

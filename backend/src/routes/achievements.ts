@@ -1,8 +1,9 @@
 import { Router, Request, Response } from 'express';
-import { Achievement, UserAchievement, User } from '../models';
+import type { Router as RouterType } from 'express';
+import { Achievement, UserAchievement, User } from '../models/index.js';
 import mongoose from 'mongoose';
 
-const router = Router();
+const router: RouterType = Router();
 
 // ============================================
 // GET /api/achievements - Get all achievements

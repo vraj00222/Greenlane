@@ -87,7 +87,7 @@ const AchievementSchema = new Schema<IAchievement>({
 }, {
   timestamps: true,
   toJSON: {
-    transform: (_doc, ret) => {
+    transform: (_doc: any, ret: any) => {
       ret.id = ret._id.toString();
       delete ret._id;
       delete ret.__v;

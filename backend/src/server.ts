@@ -1,20 +1,20 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { analyzeProductWithAI } from './services/novita';
-import { connectDatabase, getConnectionStatus } from './config/database';
-import { Achievement } from './models';
+import { analyzeProductWithAI } from './services/novita.js';
+import { connectDatabase, getConnectionStatus } from './config/database.js';
+import { Achievement } from './models/index.js';
 
 // Import routes
-import usersRouter from './routes/users';
-import scansRouter from './routes/scans';
-import achievementsRouter from './routes/achievements';
-import productsRouter from './routes/products';
+import usersRouter from './routes/users.js';
+import scansRouter from './routes/scans.js';
+import achievementsRouter from './routes/achievements.js';
+import productsRouter from './routes/products.js';
 
 // Load environment variables
 dotenv.config();
 
-const app = express();
+const app: ReturnType<typeof express> = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
