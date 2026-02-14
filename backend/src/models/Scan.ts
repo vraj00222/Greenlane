@@ -96,7 +96,7 @@ ScanSchema.statics.getUserHistory = async function(
   }
 
   return this.find(query)
-    .populate('product', 'title brand price imageUrl analysis.greenScore category')
+    .populate('product', 'title brand price imageUrl url materials source category analysis')
     .sort({ scannedAt: -1 })
     .skip(offset)
     .limit(limit);

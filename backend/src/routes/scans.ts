@@ -135,6 +135,8 @@ router.post('/', async (req: Request, res: Response) => {
       product: product._id,
     });
 
+    const isNewScan = !scan;
+
     if (scan) {
       // Update existing scan
       scan.greenScore = analysis.greenScore;
@@ -155,8 +157,10 @@ router.post('/', async (req: Request, res: Response) => {
       // Update streak
       (user as unknown as { updateStreak: () => void }).updateStreak();
       
-      // Update total scans
-      user.stats.totalScans += 1;
+      // Only increment total scans for NEW scans
+      if (isNewScan) {
+        user.stats.totalScans += 1;
+      }
 
       // Recalculate average score
       const allScans = await Scan.find({ user: userId });
