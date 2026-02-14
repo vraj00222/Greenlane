@@ -10,6 +10,7 @@ import usersRouter from './routes/users.js';
 import scansRouter from './routes/scans.js';
 import achievementsRouter from './routes/achievements.js';
 import productsRouter from './routes/products.js';
+import notificationsRouter from './routes/notifications.js';
 
 // Load environment variables
 dotenv.config();
@@ -96,6 +97,7 @@ app.use('/api/users', usersRouter);
 app.use('/api/scans', scansRouter);
 app.use('/api/achievements', achievementsRouter);
 app.use('/api/products', productsRouter);
+app.use('/api/notifications', notificationsRouter);
 
 // Analyze product sustainability
 app.post('/api/analyze-product', async (req: Request, res: Response) => {

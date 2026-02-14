@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import type { Router as RouterType } from 'express';
-import { Scan, User, Product, Achievement, UserAchievement } from '../models/index.js';
+import { Scan, User, Product, Achievement, UserAchievement, Notification } from '../models/index.js';
 import mongoose from 'mongoose';
 
 const router: RouterType = Router();
@@ -10,7 +10,7 @@ const router: RouterType = Router();
 // ============================================
 async function checkAndAwardAchievements(
   userId: mongoose.Types.ObjectId
-): Promise<string[]> {
+): Promise<{ name: string; xpReward: number }[]> {
   const user = await User.findById(userId);
   if (!user) return [];
 
@@ -20,7 +20,7 @@ async function checkAndAwardAchievements(
     existingAchievements.map(ua => ua.achievement.toString())
   );
 
-  const newAchievements: string[] = [];
+  const newAchievements: { name: string; xpReward: number }[] = [];
 
   for (const achievement of achievements) {
     // Skip if already earned
@@ -62,7 +62,14 @@ async function checkAndAwardAchievements(
         $addToSet: { achievements: achievement._id },
       });
 
-      newAchievements.push(achievement.name);
+      // Create notification for achievement
+      await Notification.createAchievementNotification(
+        userId,
+        achievement.name,
+        achievement.xpReward
+      );
+
+      newAchievements.push({ name: achievement.name, xpReward: achievement.xpReward });
       console.log(`🏆 User ${user.displayName} earned: ${achievement.name}`);
     }
   }

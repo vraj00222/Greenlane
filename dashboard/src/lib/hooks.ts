@@ -91,6 +91,27 @@ export function useLeaderboard(limit = 10) {
 }
 
 // ============================================
+// Notifications Hook
+// ============================================
+
+export function useNotifications(userId: string | null, limit = 20) {
+  return useSWR(
+    userId ? ['notifications', userId, limit] : null,
+    async () => {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const response = await fetch(`${apiUrl}/api/notifications/user/${userId}?limit=${limit}`);
+      const result = await response.json();
+      if (!result.success) throw new Error(result.error);
+      return result.data as { notifications: any[]; unreadCount: number };
+    },
+    {
+      ...swrConfig,
+      refreshInterval: 30000, // Refresh every 30 seconds
+    }
+  );
+}
+
+// ============================================
 // Health Check Hook
 // ============================================
 

@@ -11,3 +11,9 @@ export {
   AchievementRarity,
   IAchievementModel 
 } from './Achievement.js';
+export { 
+  Notification, 
+  INotification, 
+  NotificationType,
+  NotificationModel 
+} from './Notification.js';

@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import type { Router as RouterType } from 'express';
-import { User, IUser } from '../models/index.js';
+import { User, IUser, Notification } from '../models/index.js';
 import mongoose from 'mongoose';
 
 const router: RouterType = Router();
@@ -91,6 +91,16 @@ router.post('/', async (req: Request, res: Response) => {
       displayName,
       extensionId,
       avatar,
+    });
+
+    // Create welcome notification
+    await Notification.create({
+      user: user._id,
+      type: 'system',
+      title: '🎉 Welcome to GreenLane!',
+      message: `Hi ${displayName}! Start scanning products to track your sustainable shopping journey and earn achievements.`,
+      icon: '🌿',
+      actionUrl: '/',
     });
 
     console.log(`✅ New user created: ${user.email}`);

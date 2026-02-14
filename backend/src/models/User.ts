@@ -102,6 +102,7 @@ const UserSchema = new Schema<IUser>({
 }, {
   timestamps: true,
   toJSON: {
+    virtuals: true,
     transform: (_doc: any, ret: any) => {
       ret.id = ret._id.toString();
       delete ret._id;
@@ -109,6 +110,21 @@ const UserSchema = new Schema<IUser>({
       return ret;
     },
   },
+});
+
+// ============================================
+// Virtuals for XP and Level
+// ============================================
+
+// XP calculation: 10 XP per scan + achievement XP (from frontend will fetch achievement XP separately)
+UserSchema.virtual('xp').get(function() {
+  return this.stats.totalScans * 10;
+});
+
+// Level calculation: Level up every 100 XP
+UserSchema.virtual('level').get(function() {
+  const baseXP = this.stats.totalScans * 10;
+  return Math.floor(baseXP / 100) + 1;
 });
 
 // ============================================
