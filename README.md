@@ -4,8 +4,6 @@
 
 Built for **SFHacks 2026** 🏆
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-
 ---
 
 ## 🎯 Problem
@@ -21,9 +19,8 @@ Every purchase has an environmental impact, but it's nearly impossible for consu
 
 1. **Analyzes products** on shopping sites (Amazon, etc.) using AI
 2. **Scores sustainability** (0-100) based on materials, brand practices, and certifications
-3. **Recommends greener alternatives** using semantic search
+3. **Recommends greener alternatives**
 4. **Tracks your green choices** and rewards you with achievements
-5. **Optional:** Mint achievement NFTs on Solana for permanent proof of impact
 
 ---
 
@@ -42,23 +39,23 @@ Every purchase has an environmental impact, but it's nearly impossible for consu
 ┌──────────────────────────────────────┐
 │       Backend API (Express/TS)       │
 │  POST /api/analyze-product           │
-│  POST /api/log-choice                │
-│  GET  /api/dashboard/:userId         │
+│  POST /api/scans                     │
+│  GET  /api/users/:userId             │
 └──────────────────────────────────────┘
-          │         │         │
-          │         │         │
-    ┌─────▼─┐  ┌────▼────┐  ┌▼──────┐
-    │Gemini │  │ VectorAI│  │MongoDB│
-    │  API  │  │   DB    │  │ Atlas │
-    └───────┘  └─────────┘  └───────┘
-                          ▲
-                          │
-┌─────────────────────────┘
+          │                   │
+          │                   │
+    ┌─────▼─────┐       ┌─────▼─────┐
+    │ Novita AI │       │  MongoDB  │
+    │(DeepSeek) │       │           │
+    └───────────┘       └───────────┘
+                              ▲
+                              │
+┌─────────────────────────────┘
 │   Dashboard (Next.js)
-│   - User login
-│   - Stats & achievements
-│   - Timeline of choices
-└─────────────────────────
+│   - User stats & achievements
+│   - Scan history
+│   - Leaderboard
+└─────────────────────────────
 ```
 
 ---
@@ -69,10 +66,9 @@ Every purchase has an environmental impact, but it's nearly impossible for consu
 |-----------|------------|
 | **Extension** | TypeScript, React, [Plasmo](https://plasmo.com) |
 | **Backend** | Node.js, Express, TypeScript |
-| **Frontend** | Next.js 14, React, Tailwind CSS |
-| **Database** | MongoDB Atlas |
-| **AI/ML** | Google Gemini API, Actian VectorAI DB |
-| **Blockchain** | Solana (Devnet) - Optional NFT badges |
+| **Frontend** | Next.js 15, React, Tailwind CSS, shadcn/ui |
+| **Database** | MongoDB |
+| **AI/ML** | Novita AI (DeepSeek R1) |
 
 ---
 
@@ -88,17 +84,15 @@ greenlane/
 ├── backend/            # Express API server
 │   ├── src/
 │   │   ├── server.ts   # Main entry point
-│   │   ├── services/   # Gemini, VectorAI, Solana
-│   │   └── db/         # MongoDB models
-│   └── scripts/        # Seed scripts
+│   │   ├── services/   # AI integration
+│   │   ├── models/     # MongoDB models
+│   │   └── routes/     # API routes
 ├── dashboard/          # Next.js web app
-│   ├── app/            # App router pages
-│   ├── components/     # React components
-│   └── lib/            # Utilities, auth
+│   ├── src/app/        # App router pages
+│   ├── src/components/ # React components
+│   └── src/lib/        # Utilities
 ├── shared/             # Shared types & utilities
 │   └── types/          # TypeScript interfaces
-├── .gitignore          # Security-first ignore rules
-├── package.json        # pnpm workspaces config
 └── README.md           # This file
 ```
 
@@ -111,14 +105,14 @@ greenlane/
 - Node.js 18+
 - pnpm 8+
 - Chrome browser
-- MongoDB Atlas account (free tier)
-- Google AI Studio API key (Gemini)
+- MongoDB (local or Atlas)
+- Novita AI API key
 
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/your-username/greenlane.git
-cd greenlane
+git clone https://github.com/vraj00222/Greenlane.git
+cd Greenlane
 pnpm install
 ```
 
@@ -129,22 +123,21 @@ pnpm install
 cp backend/.env.example backend/.env
 # Edit backend/.env with your API keys
 
-# Dashboard
-cp dashboard/.env.example dashboard/.env
-# Edit dashboard/.env with your secrets
+# Extension (optional)
+cp extension/.env.example extension/.env
 ```
 
 ### 3. Start Development
 
 ```bash
-# Terminal 1: Backend
-pnpm dev:backend
+# Terminal 1: Backend (port 3001)
+cd backend && pnpm dev
 
-# Terminal 2: Dashboard
-pnpm dev:dashboard
+# Terminal 2: Dashboard (port 3002)
+cd dashboard && pnpm dev
 
 # Terminal 3: Extension
-pnpm dev:extension
+cd extension && pnpm dev
 ```
 
 ### 4. Load Extension in Chrome
@@ -162,25 +155,9 @@ pnpm dev:extension
 2. **Click** - Open GreenLane extension
 3. **Analyze** - AI scores the product's sustainability
 4. **Discover** - See greener alternatives
-5. **Choose** - Log your decision (bought, alternative, skipped)
+5. **Choose** - Log your decision
 6. **Track** - View progress on your dashboard
-7. **Earn** - Unlock achievements and NFT badges!
-
----
-
-## 🏆 Hackathon Tracks
-
-GreenLane is designed to compete in multiple tracks:
-
-| Track | How We Qualify |
-|-------|----------------|
-| 🌍 **Climate Action** | Core mission: reduce shopping carbon footprint |
-| 🎨 **Design** | Beautiful, intuitive extension + dashboard UX |
-| 🤖 **Gemini API** | AI-powered sustainability analysis |
-| 🍃 **MongoDB Atlas** | User data, choices, and achievements storage |
-| ⛓️ **Solana** | NFT achievement badges on-chain |
-| ☁️ **Vultr** | Backend deployment |
-| 🌐 **.TECH Domain** | greenlane.tech |
+7. **Earn** - Unlock achievements!
 
 ---
 
@@ -190,62 +167,22 @@ GreenLane is designed to compete in multiple tracks:
 |--------|----------|-------------|
 | GET | `/health` | Health check |
 | POST | `/api/analyze-product` | Analyze product sustainability |
-| POST | `/api/log-choice` | Log user's shopping choice |
-| GET | `/api/dashboard/:userId` | Get user stats & timeline |
-
----
-
-## 🔐 Security
-
-- ❌ **Never** commit `.env` files
-- ❌ **Never** commit API keys or secrets
-- ✅ All secrets in `.env` (gitignored)
-- ✅ `.env.example` files show required vars
-- ✅ Pre-commit checks for leaked secrets
+| POST | `/api/scans` | Record a product scan |
+| GET | `/api/users/:id` | Get user data |
+| GET | `/api/scans/user/:id` | Get user scan history |
+| GET | `/api/achievements/user/:id` | Get user achievements |
+| GET | `/api/users/leaderboard/top` | Get leaderboard |
 
 ---
 
 ## 🧪 Testing
 
 ```bash
-# Run all tests
-pnpm test
+# Test backend health
+curl http://localhost:3001/health
 
-# Test backend API
-cd backend && ./test-api.sh
-
-# Manual extension testing
-# See extension/TEST_PLAN.md
+# Test product analysis
+curl -X POST http://localhost:3001/api/analyze-product \
+  -H "Content-Type: application/json" \
+  -d '{"productTitle": "Organic Cotton T-Shirt", "brand": "EcoWear", "price": "$29.99"}'
 ```
-
----
-
-## 📈 Roadmap
-
-- [x] Phase 0: Repository setup
-- [ ] Phase 1: Extension scaffold
-- [ ] Phase 2: Backend mock API
-- [ ] Phase 3: Extension ↔ Backend integration
-- [ ] Phase 4: Gemini AI integration
-- [ ] Phase 5: Dashboard foundation
-- [ ] Phase 6: MongoDB setup
-- [ ] Phase 7: User choice logging
-- [ ] Phase 8: Dashboard real data
-- [ ] Phase 9: Achievement system
-- [ ] Phase 10: VectorAI recommendations
-- [ ] Phase 11: Solana NFTs (optional)
-- [ ] Phase 12: Polish & error handling
-- [ ] Phase 13: Deployment
-- [ ] Phase 14: Demo preparation
-
----
-
-## 👥 Team
-
-Built with 💚 for SFHacks 2026
-
----
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) for details
