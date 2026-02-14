@@ -5,6 +5,7 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { DashboardLayout } from "@/components/dashboard-layout"
+import { UserProvider } from "@/lib/user-context"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -33,7 +34,9 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <TooltipProvider delayDuration={0}>
-            <DashboardLayout>{children}</DashboardLayout>
+            <UserProvider>
+              <DashboardLayout>{children}</DashboardLayout>
+            </UserProvider>
           </TooltipProvider>
         </ThemeProvider>
       </body>
