@@ -1,0 +1,26 @@
+# Backend .gitignore
+node_modules/
+.env
+.env.*
+!.env.example
+
+# Build outputs
+dist/
+build/
+
+# Keys & Secrets
+*.key
+*.pem
+secrets/
+
+# Logs
+*.log
+logs/
+
+# IDE
+.idea/
+.vscode/
+.DS_Store
+
+# Test outputs
+coverage/

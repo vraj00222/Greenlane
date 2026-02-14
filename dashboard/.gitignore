@@ -1,0 +1,30 @@
+# Dashboard .gitignore
+node_modules/
+.env
+.env.*
+!.env.example
+
+# Next.js
+.next/
+out/
+build/
+
+# Keys & Secrets
+*.key
+*.pem
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDE
+.idea/
+.vscode/
+.DS_Store
+
+# Testing
+coverage/
+.nyc_output/
+
+# Vercel
+.vercel/

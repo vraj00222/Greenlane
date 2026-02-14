@@ -1,0 +1,22 @@
+# Extension .gitignore
+node_modules/
+.env
+.env.*
+!.env.example
+
+# Plasmo build outputs
+build/
+.plasmo/
+dist/
+
+# Keys
+*.key
+*.pem
+
+# Logs
+*.log
+
+# IDE
+.idea/
+.vscode/
+.DS_Store

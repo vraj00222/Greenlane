@@ -1,0 +1,99 @@
+# ========================================
+# GreenLane - Root .gitignore
+# Security-first: NO secrets committed!
+# ========================================
+
+# ─────────────────────────────────────────
+# ENVIRONMENT & SECRETS (CRITICAL!)
+# ─────────────────────────────────────────
+.env
+.env.*
+.env.local
+.env.development
+.env.production
+.env.test
+!.env.example
+
+# API Keys & Credentials
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+secrets/
+credentials/
+.secrets
+
+# ─────────────────────────────────────────
+# DEPENDENCIES
+# ─────────────────────────────────────────
+node_modules/
+.pnpm-store/
+.yarn/
+.npm/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# ─────────────────────────────────────────
+# BUILD OUTPUTS
+# ─────────────────────────────────────────
+dist/
+build/
+out/
+.next/
+.nuxt/
+.output/
+*.tsbuildinfo
+
+# ─────────────────────────────────────────
+# PLASMO (Chrome Extension)
+# ─────────────────────────────────────────
+.plasmo/
+build/chrome-mv3-dev/
+build/chrome-mv3-prod/
+build/firefox-mv2-dev/
+build/firefox-mv2-prod/
+
+# ─────────────────────────────────────────
+# IDE & EDITORS
+# ─────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ─────────────────────────────────────────
+# LOGS & DEBUG
+# ─────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+debug/
+
+# ─────────────────────────────────────────
+# TESTING
+# ─────────────────────────────────────────
+coverage/
+.nyc_output/
+*.lcov
+
+# ─────────────────────────────────────────
+# MISC
+# ─────────────────────────────────────────
+*.local
+*.backup
+*.bak
+*.tmp
+*.temp
+.cache/
+.parcel-cache/
+.turbo/

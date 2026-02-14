@@ -1,0 +1,39 @@
+{
+  "name": "greenlane",
+  "version": "0.1.0",
+  "description": "AI-powered Chrome extension for sustainable shopping choices",
+  "private": true,
+  "workspaces": [
+    "extension",
+    "backend",
+    "dashboard",
+    "shared"
+  ],
+  "scripts": {
+    "dev:extension": "pnpm --filter extension dev",
+    "dev:backend": "pnpm --filter backend dev",
+    "dev:dashboard": "pnpm --filter dashboard dev",
+    "build:extension": "pnpm --filter extension build",
+    "build:backend": "pnpm --filter backend build",
+    "build:dashboard": "pnpm --filter dashboard build",
+    "build:all": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "clean": "pnpm -r clean && rm -rf node_modules"
+  },
+  "keywords": [
+    "sustainability",
+    "chrome-extension",
+    "ai",
+    "gemini",
+    "green-shopping",
+    "climate-action"
+  ],
+  "author": "GreenLane Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0"
+}
