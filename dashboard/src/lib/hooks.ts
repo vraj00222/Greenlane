@@ -20,9 +20,16 @@ import {
 // ============================================
 
 const swrConfig = {
-  revalidateOnFocus: false,
-  revalidateOnReconnect: true,
-  dedupingInterval: 5000,
+  revalidateOnFocus: true,      // Refresh when user focuses tab
+  revalidateOnReconnect: true,  // Refresh on reconnect
+  dedupingInterval: 2000,       // Shorter deduping for faster updates
+};
+
+// Real-time config for frequently changing data
+const realtimeConfig = {
+  ...swrConfig,
+  refreshInterval: 5000,        // Auto-refresh every 5 seconds
+  revalidateIfStale: true,
 };
 
 // ============================================
@@ -33,10 +40,7 @@ export function useUser(userId: string | null) {
   return useSWR<User>(
     userId ? ['user', userId] : null,
     () => getUser(userId!),
-    {
-      ...swrConfig,
-      revalidateOnFocus: true,
-    }
+    realtimeConfig  // Real-time updates for stats like totalScans, averageScore
   );
 }
 
@@ -48,7 +52,7 @@ export function useUserScans(userId: string | null, limit = 50) {
   return useSWR<Scan[]>(
     userId ? ['scans', userId, limit] : null,
     () => getUserScans(userId!, { limit }),
-    swrConfig
+    realtimeConfig  // Real-time updates for history
   );
 }
 
@@ -56,7 +60,7 @@ export function useWeeklyActivity(userId: string | null) {
   return useSWR<WeeklyActivity[]>(
     userId ? ['weekly-activity', userId] : null,
     () => getWeeklyActivity(userId!),
-    swrConfig
+    realtimeConfig  // Real-time updates for activity chart
   );
 }
 
@@ -71,7 +75,7 @@ export function useUserAchievements(userId: string | null) {
   }>(
     userId ? ['achievements', userId] : null,
     () => getUserAchievements(userId!),
-    swrConfig
+    realtimeConfig  // Real-time updates for progress bars
   );
 }
 
