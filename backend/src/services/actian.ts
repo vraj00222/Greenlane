@@ -124,14 +124,62 @@ export async function findEcoAlternatives(
       };
     }
 
-    const data = await response.json();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data: any = await response.json();
     
     // Handle various response structures from VectorAI
-    const alternatives = (data?.results || data?.data || data?.alternatives || []) as SearchResult[];
+    const rawResults = data?.results || data?.data || data?.alternatives || data?.hits || [];
     
-    // If no results from VectorAI, use fallback
-    if (!alternatives || alternatives.length === 0) {
-      console.log('📭 VectorAI returned no results, using fallback');
+    // Transform VectorAI response to match our SearchResult interface
+    const alternatives: SearchResult[] = [];
+    
+    if (Array.isArray(rawResults)) {
+      for (let i = 0; i < rawResults.length && i < limit; i++) {
+        const item = rawResults[i];
+        if (!item) continue;
+        
+        // Handle different response formats:
+        // Format 1: { product: {...}, similarity: 0.9 }
+        // Format 2: { ...productFields, score: 0.9 }
+        // Format 3: { _source: {...}, _score: 0.9 }
+        
+        let product: EcoProduct | null = null;
+        let similarity = 0.9 - (i * 0.05);
+        
+        if (item.product && typeof item.product === 'object') {
+          // Format 1: Already wrapped
+          product = item.product as EcoProduct;
+          similarity = item.similarity ?? item.score ?? similarity;
+        } else if (item._source && typeof item._source === 'object') {
+          // Format 3: Elasticsearch-style
+          product = item._source as EcoProduct;
+          similarity = item._score ?? similarity;
+        } else if (item.name || item.title) {
+          // Format 2: Flat product object
+          product = {
+            id: item.id || item._id || `vectorai-${i}`,
+            name: item.name || item.title || 'Unknown Product',
+            brand: item.brand || 'Unknown',
+            category: item.category || category,
+            ecoScore: item.ecoScore || item.eco_score || 80,
+            certifications: item.certifications || [],
+            description: item.description || '',
+            price: item.price || 'N/A',
+            url: item.url || '#',
+            imageUrl: item.imageUrl || item.image_url
+          };
+          similarity = item.similarity ?? item.score ?? item._score ?? similarity;
+        }
+        
+        if (product && product.name) {
+          alternatives.push({ product, similarity });
+        }
+      }
+    }
+    
+    // If no valid results from VectorAI, use fallback
+    if (alternatives.length === 0) {
+      console.log('📭 VectorAI returned no usable results, using fallback');
       const fallbackAlternatives = getFallbackAlternatives(category, limit);
       return {
         alternatives: fallbackAlternatives,
@@ -140,6 +188,7 @@ export async function findEcoAlternatives(
       };
     }
     
+    console.log(`✅ VectorAI returned ${alternatives.length} alternatives`);
     return {
       alternatives,
       tips: tips.slice(0, 1),
