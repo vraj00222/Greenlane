@@ -12,11 +12,14 @@ interface ProductData {
 
 interface Alternative {
   id: string
-  title: string
+  name: string
   brand: string
-  price: number
-  greenScore: number
+  price: string
+  ecoScore: number
   url: string
+  certifications: string[]
+  description: string
+  similarity?: number
 }
 
 interface AnalysisResult {
@@ -528,26 +531,45 @@ function AnalysisView({
                 <h4 style={{ margin: "0 0 12px", fontSize: 14, color: "#065f46" }}>
                   🌱 Greener Alternative
                 </h4>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: "#1f2937" }}>
-                      {analysis.alternatives[0].title}
-                    </p>
-                    <p style={{ margin: "4px 0 0", fontSize: 12, color: "#6b7280" }}>
-                      ${analysis.alternatives[0].price} • Score: {analysis.alternatives[0].greenScore}
-                    </p>
-                  </div>
-                  <span style={{
-                    background: "#22c55e",
-                    color: "white",
-                    padding: "4px 8px",
-                    borderRadius: 4,
-                    fontSize: 12,
-                    fontWeight: 600
+                {analysis.alternatives.slice(0, 2).map((alt, i) => (
+                  <div key={alt.id} style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: i === 0 ? 12 : 0,
+                    paddingBottom: i === 0 ? 12 : 0,
+                    borderBottom: i === 0 ? "1px solid #d1fae5" : "none"
                   }}>
-                    +{analysis.alternatives[0].greenScore - analysis.greenScore}
-                  </span>
-                </div>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: "#1f2937" }}>
+                        {alt.name}
+                      </p>
+                      <p style={{ margin: "2px 0", fontSize: 11, color: "#059669", fontWeight: 500 }}>
+                        {alt.brand} • {alt.price}
+                      </p>
+                      <p style={{ margin: "4px 0 0", fontSize: 10, color: "#6b7280" }}>
+                        {alt.certifications.slice(0, 2).join(" • ")}
+                      </p>
+                    </div>
+                    <a
+                      href={alt.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        background: "#22c55e",
+                        color: "white",
+                        padding: "6px 12px",
+                        borderRadius: 4,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        textDecoration: "none",
+                        marginLeft: 8
+                      }}
+                    >
+                      {alt.ecoScore}% eco
+                    </a>
+                  </div>
+                ))}
               </div>
             )}
           </>

@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { analyzeProductWithAI } from './services/novita.js';
+import { findEcoAlternatives, detectCategory, checkVectorAIHealth, type EcoProduct, type SearchResult } from './services/actian.js';
 import { connectDatabase, getConnectionStatus } from './config/database.js';
 import { Achievement } from './models/index.js';
 
@@ -56,12 +57,14 @@ interface ProductData {
 
 interface Alternative {
   id: string;
-  title: string;
+  name: string;
   brand: string;
-  price: number;
-  greenScore: number;
+  price: string;
+  ecoScore: number;
   url: string;
-  sustainabilityReason: string;
+  certifications: string[];
+  description: string;
+  similarity?: number;
 }
 
 interface AnalysisResult {
@@ -78,8 +81,9 @@ interface AnalysisResult {
 // ============================================
 
 // Health check
-app.get('/health', (_req: Request, res: Response) => {
+app.get('/health', async (_req: Request, res: Response) => {
   const dbStatus = getConnectionStatus();
+  const vectorAIStatus = await checkVectorAIHealth();
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -87,7 +91,11 @@ app.get('/health', (_req: Request, res: Response) => {
     database: dbStatus,
     ai: {
       provider: 'Novita AI',
-      model: process.env.NOVITA_MODEL || 'deepseek/deepseek-r1-0528'
+      model: process.env.NOVITA_MODEL || 'deepseek/deepseek_v3'
+    },
+    vectorAI: {
+      available: vectorAIStatus,
+      fallback: !vectorAIStatus ? 'Using curated alternatives' : null
     }
   });
 });
@@ -130,14 +138,32 @@ app.post('/api/analyze-product', async (req: Request, res: Response) => {
     const adjustedScore = applyKeywordAdjustments(analysis.greenScore, product);
     analysis.greenScore = Math.max(0, Math.min(100, adjustedScore));
 
-    // Mock alternatives (will be replaced with VectorAI in Phase 10)
-    const alternatives: Alternative[] = getMockAlternatives(product, analysis.greenScore);
+    // Get eco-friendly alternatives using VectorAI semantic search
+    const category = detectCategory(product.productTitle);
+    let alternatives: Alternative[] = [];
+    
+    // Only suggest alternatives if product isn't already very sustainable
+    if (analysis.greenScore < 80) {
+      const results = await findEcoAlternatives(product.productTitle, category, 3);
+      alternatives = results.map(r => ({
+        id: r.product.id,
+        name: r.product.name,
+        brand: r.product.brand,
+        price: r.product.price,
+        ecoScore: r.product.ecoScore,
+        url: r.product.url,
+        certifications: r.product.certifications,
+        description: r.product.description,
+        similarity: r.similarity
+      }));
+    }
 
     res.json({
       success: true,
       product,
       analysis,
       alternatives,
+      category,
       analyzedAt: new Date().toISOString()
     });
 
@@ -243,27 +269,6 @@ function getHeuristicAnalysis(product: ProductData): AnalysisResult {
       ? 'This product shows some sustainable qualities'
       : 'Consider looking for more eco-friendly alternatives'
   };
-}
-
-function getMockAlternatives(product: ProductData, currentScore: number): Alternative[] {
-  // Return mock alternatives with higher scores
-  // Will be replaced with VectorAI semantic search in Phase 10
-  
-  if (currentScore >= 80) {
-    return []; // Already a great choice!
-  }
-
-  return [
-    {
-      id: 'alt_1',
-      title: `Eco-Friendly ${product.productTitle.split(' ').slice(0, 3).join(' ')} Alternative`,
-      brand: 'EcoChoice',
-      price: parseFloat(product.price.replace(/[^0-9.]/g, '')) * 1.1 || 49.99,
-      greenScore: Math.min(95, currentScore + 25),
-      url: 'https://example.com/eco-alternative',
-      sustainabilityReason: 'Made from 100% recycled materials with carbon-neutral shipping'
-    }
-  ];
 }
 
 // ============================================
