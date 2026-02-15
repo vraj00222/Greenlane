@@ -37,6 +37,7 @@ interface AnalysisResult {
   alternatives: Alternative[]
   sustainabilityTips?: SustainabilityTip[]
   hasEcoAlternatives?: boolean
+  localAnalysis?: boolean  // True when analyzed by local LLM (Meta ExecuTorch)
 }
 
 interface UserData {
@@ -199,7 +200,14 @@ function LoginView({ onLogin, onBack }: { onLogin: (email: string, name: string)
 }
 
 // Settings View
-function SettingsView({ user, onLogout, onBack }: { user: UserData; onLogout: () => void; onBack: () => void }) {
+function SettingsView({ user, onLogout, onBack, localLLMEnabled, onToggleLocalLLM, localServerStatus }: { 
+  user: UserData; 
+  onLogout: () => void; 
+  onBack: () => void;
+  localLLMEnabled: boolean;
+  onToggleLocalLLM: () => void;
+  localServerStatus: 'connected' | 'disconnected' | 'checking';
+}) {
   const dashboardUrl = process.env.PLASMO_PUBLIC_DASHBOARD_URL || "http://localhost:3002"
   
   return (
@@ -235,6 +243,87 @@ function SettingsView({ user, onLogout, onBack }: { user: UserData; onLogout: ()
                   <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6b7280" }}>{user.email}</p>
                 </div>
               </div>
+            </div>
+            
+            {/* Go Private Toggle - Meta ExecuTorch */}
+            <div style={{
+              background: localLLMEnabled ? "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)" : "white",
+              borderRadius: 8,
+              padding: "14px 16px",
+              marginBottom: 12,
+              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+              transition: "all 0.3s ease"
+            }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ 
+                    fontSize: 20,
+                    transition: "transform 0.3s ease",
+                    transform: localLLMEnabled ? "rotate(0deg)" : "rotate(-15deg)"
+                  }}>
+                    {localLLMEnabled ? "🔒" : "🔓"}
+                  </span>
+                  <div>
+                    <span style={{ fontWeight: 500, color: localLLMEnabled ? "white" : "#1f2937" }}>Go Private</span>
+                    <p style={{ 
+                      margin: "2px 0 0", 
+                      fontSize: 11, 
+                      color: localLLMEnabled ? "rgba(255,255,255,0.8)" : "#6b7280" 
+                    }}>
+                      {localLLMEnabled ? "Local AI active" : "Use on-device AI"}
+                    </p>
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {localLLMEnabled && (
+                    <span style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      background: localServerStatus === 'connected' ? "#22c55e" : 
+                                  localServerStatus === 'checking' ? "#fbbf24" : "#ef4444",
+                      boxShadow: localServerStatus === 'connected' ? "0 0 6px #22c55e" : "none"
+                    }} />
+                  )}
+                  <button
+                    onClick={onToggleLocalLLM}
+                    style={{
+                      width: 44,
+                      height: 24,
+                      borderRadius: 12,
+                      border: "none",
+                      background: localLLMEnabled ? "#22c55e" : "#d1d5db",
+                      cursor: "pointer",
+                      position: "relative",
+                      transition: "background 0.3s ease"
+                    }}
+                  >
+                    <span style={{
+                      position: "absolute",
+                      top: 2,
+                      left: localLLMEnabled ? 22 : 2,
+                      width: 20,
+                      height: 20,
+                      borderRadius: "50%",
+                      background: "white",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                      transition: "left 0.3s ease"
+                    }} />
+                  </button>
+                </div>
+              </div>
+              {localLLMEnabled && localServerStatus === 'disconnected' && (
+                <p style={{ 
+                  margin: "8px 0 0", 
+                  fontSize: 11, 
+                  color: "#fca5a5",
+                  background: "rgba(0,0,0,0.2)",
+                  padding: "6px 10px",
+                  borderRadius: 6
+                }}>
+                  ⚠️ Local server not running. Start it with: ./greenlane-local
+                </p>
+              )}
             </div>
             
             <a
@@ -283,6 +372,11 @@ function SettingsView({ user, onLogout, onBack }: { user: UserData; onLogout: ()
           <p style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", margin: 0 }}>
             GreenLane v1.0.0 • Made with 💚 for SFHacks 2026
           </p>
+          {localLLMEnabled && (
+            <p style={{ fontSize: 10, color: "#7c3aed", textAlign: "center", margin: "4px 0 0" }}>
+              🔒 Meta ExecuTorch • On-Device AI
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -576,11 +670,28 @@ function AnalysisView({
             <div style={{
               textAlign: "center",
               padding: 20,
-              background: "white",
+              background: analysis.localAnalysis ? "linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)" : "white",
               borderRadius: 8,
               marginBottom: 16,
-              boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
+              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+              border: analysis.localAnalysis ? "1px solid #c4b5fd" : "none"
             }}>
+              {analysis.localAnalysis && (
+                <div style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  background: "#7c3aed",
+                  color: "white",
+                  fontSize: 10,
+                  fontWeight: 600,
+                  padding: "3px 8px",
+                  borderRadius: 10,
+                  marginBottom: 12
+                }}>
+                  🔒 Analyzed Locally
+                </div>
+              )}
               <div style={{
                 width: 80,
                 height: 80,
@@ -953,6 +1064,56 @@ function IndexPopup() {
   const [noAltsReason, setNoAltsReason] = useState<string | null>(null)
   const [altsError, setAltsError] = useState<string | null>(null)
   const [searchingAlts, setSearchingAlts] = useState(false)
+  
+  // Local LLM state (Meta ExecuTorch)
+  const [localLLMEnabled, setLocalLLMEnabled] = useState(false)
+  const [localServerStatus, setLocalServerStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking')
+  
+  // Load local LLM preference on mount
+  useEffect(() => {
+    chrome.storage.local.get(['localLLMEnabled'], (result) => {
+      if (result.localLLMEnabled !== undefined) {
+        setLocalLLMEnabled(result.localLLMEnabled)
+      }
+    })
+  }, [])
+  
+  // Check local server status when enabled
+  useEffect(() => {
+    if (localLLMEnabled) {
+      checkLocalServer()
+      const interval = setInterval(checkLocalServer, 10000) // Check every 10s
+      return () => clearInterval(interval)
+    } else {
+      setLocalServerStatus('disconnected')
+    }
+  }, [localLLMEnabled])
+  
+  const checkLocalServer = async () => {
+    try {
+      setLocalServerStatus('checking')
+      const response = await fetch('http://localhost:8765/health', { 
+        method: 'GET',
+        signal: AbortSignal.timeout(3000)
+      })
+      if (response.ok) {
+        setLocalServerStatus('connected')
+      } else {
+        setLocalServerStatus('disconnected')
+      }
+    } catch {
+      setLocalServerStatus('disconnected')
+    }
+  }
+  
+  const handleToggleLocalLLM = () => {
+    const newValue = !localLLMEnabled
+    setLocalLLMEnabled(newValue)
+    chrome.storage.local.set({ localLLMEnabled: newValue })
+    if (newValue) {
+      checkLocalServer()
+    }
+  }
 
   // Load cached alternatives on mount
   useEffect(() => {
@@ -1115,17 +1276,47 @@ function IndexPopup() {
           // Helper function to fetch from API
           async function fetchAnalysis(productData: ProductData, cacheKey: string) {
             try {
-              const apiUrl = process.env.PLASMO_PUBLIC_API_URL || "http://localhost:3001"
-              const res = await fetch(`${apiUrl}/api/analyze-product`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(productData)
-              })
+              let analysisData;
               
-              if (!res.ok) throw new Error("API error")
-              
-              const data = await res.json()
-              const analysisData = data.analysis
+              // Check if local LLM is enabled and server is available
+              if (localLLMEnabled && localServerStatus === 'connected') {
+                console.log('GreenLane: Using local LLM (ExecuTorch)')
+                const localRes = await fetch('http://localhost:8765/analyze', {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    productTitle: productData.title || productData.name,
+                    brand: productData.brand || "",
+                    price: productData.price || "",
+                    materials: productData.materials || ""
+                  }),
+                  signal: AbortSignal.timeout(30000) // 30s timeout for local inference
+                })
+                
+                if (!localRes.ok) throw new Error("Local LLM error")
+                
+                const localData = await localRes.json()
+                analysisData = {
+                  greenScore: localData.greenScore,
+                  positives: localData.positives,
+                  negatives: localData.negatives,
+                  recommendation: localData.recommendation,
+                  localAnalysis: true
+                }
+              } else {
+                // Use cloud API
+                const apiUrl = process.env.PLASMO_PUBLIC_API_URL || "http://localhost:3001"
+                const res = await fetch(`${apiUrl}/api/analyze-product`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(productData)
+                })
+                
+                if (!res.ok) throw new Error("API error")
+                
+                const data = await res.json()
+                analysisData = data.analysis
+              }
               
               // Cache for future requests
               chrome.runtime.sendMessage({
@@ -1136,8 +1327,8 @@ function IndexPopup() {
               
               setAnalysis(analysisData)
 
-              // Record scan if user is logged in
-              if (user.userId) {
+              // Record scan if user is logged in (skip for local analysis)
+              if (user.userId && !analysisData.localAnalysis) {
                 setScanStatus('saving')
                 chrome.runtime.sendMessage({
                   type: "RECORD_SCAN",
@@ -1157,7 +1348,12 @@ function IndexPopup() {
               }
             } catch (err) {
               console.error("API Error:", err)
-              setError("Failed to analyze. Is backend running?")
+              // If local LLM failed, suggest trying cloud
+              if (localLLMEnabled) {
+                setError("Local AI failed. Try disabling 'Go Private' in settings.")
+              } else {
+                setError("Failed to analyze. Is backend running?")
+              }
             } finally {
               setLoading(false)
               setIsAnalyzing(false)
@@ -1207,7 +1403,14 @@ function IndexPopup() {
   }
 
   if (view === "settings") {
-    return <SettingsView user={user} onLogout={handleLogout} onBack={() => setView("main")} />
+    return <SettingsView 
+      user={user} 
+      onLogout={handleLogout} 
+      onBack={() => setView("main")} 
+      localLLMEnabled={localLLMEnabled}
+      onToggleLocalLLM={handleToggleLocalLLM}
+      localServerStatus={localServerStatus}
+    />
   }
 
   return (
