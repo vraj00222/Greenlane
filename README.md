@@ -161,7 +161,37 @@ cd extension && pnpm dev
 
 ---
 
-## 📊 API Endpoints
+## � Sustainability Scoring System
+
+GreenLane uses a comprehensive **15-metric scoring system** (max 100 points) to evaluate product sustainability:
+
+| # | Metric | Points | Description |
+|---|--------|--------|-------------|
+| 1 | **Recycled Content** | 0-10 | Percentage of recycled materials used |
+| 2 | **Natural/Organic Materials** | 0-8 | Certified organic or natural materials (bamboo, hemp, etc.) |
+| 3 | **Product Durability** ⭐ | 0-12 | Expected lifespan and build quality (key metric) |
+| 4 | **Repairability** | 0-6 | Ease of repair and parts availability |
+| 5 | **End-of-Life Disposal** | 0-8 | Recyclability or compostability |
+| 6 | **Energy Efficiency** | 0-8 | Power consumption during use |
+| 7 | **Certifications** | 0-10 | B-Corp, Fair Trade, GOTS, FSC, Energy Star |
+| 8 | **Packaging** | -5 to +5 | Minimal/plastic-free (+5) to excessive plastic (-5) |
+| 9 | **Manufacturing Impact** | 0-8 | Clean production and renewable energy use |
+| 10 | **Water Footprint** | 0-5 | Water usage in production |
+| 11 | **Ethical Sourcing** | 0-8 | Supply chain ethics and fair wages |
+| 12 | **Biodegradability** | 0-7 | Material breakdown in environment |
+| 13 | **Toxicity** ⚠️ | -10 to 0 | Penalty for harmful chemicals (BPA, lead, etc.) |
+| 14 | **Brand Sustainability Record** | 0-8 | Company's overall sustainability initiatives |
+| 15 | **Carbon Footprint** | -5 to +5 | Carbon neutral (+5) to high emissions (-5) |
+
+**Score Ranges:**
+- 🟢 **75-100**: Excellent - Highly sustainable choice
+- 🟡 **50-74**: Good - Above average sustainability
+- 🟠 **25-49**: Fair - Room for improvement
+- 🔴 **0-24**: Poor - Consider alternatives
+
+---
+
+## �📊 API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
