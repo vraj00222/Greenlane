@@ -324,6 +324,8 @@ function AnalysisView({
   const [searchingAlts, setSearchingAlts] = useState(false)
   const [amazonAlts, setAmazonAlts] = useState<AmazonAlternative[]>([])
   const [altsError, setAltsError] = useState<string | null>(null)
+  const [noAlternatives, setNoAlternatives] = useState(false)
+  const [noAltsReason, setNoAltsReason] = useState<string | null>(null)
 
   // Find eco alternatives on Amazon
   const findAlternatives = async () => {
@@ -332,6 +334,8 @@ function AnalysisView({
     setSearchingAlts(true)
     setAltsError(null)
     setAmazonAlts([])
+    setNoAlternatives(false)
+    setNoAltsReason(null)
 
     try {
       const response = await fetch("http://localhost:3001/api/products/alternatives", {
@@ -345,8 +349,16 @@ function AnalysisView({
 
       const data = await response.json()
       
-      if (data.success && data.data?.alternatives) {
-        setAmazonAlts(data.data.alternatives)
+      if (data.success && data.data) {
+        if (data.data.noAlternatives) {
+          // Product has no sustainable alternatives
+          setNoAlternatives(true)
+          setNoAltsReason(data.data.noAlternativesReason || "This product type doesn't have sustainable alternatives.")
+        } else if (data.data.alternatives && data.data.alternatives.length > 0) {
+          setAmazonAlts(data.data.alternatives)
+        } else {
+          setAltsError("No alternatives found")
+        }
       } else {
         setAltsError("No alternatives found")
       }
@@ -732,8 +744,8 @@ function AnalysisView({
               </div>
             )}
 
-            {/* Find Eco Alternatives Button - Always show after analysis */}
-            {amazonAlts.length === 0 && (
+            {/* Find Eco Alternatives Button - Show until results found */}
+            {amazonAlts.length === 0 && !noAlternatives && !altsError && (
               <button
                 onClick={findAlternatives}
                 disabled={searchingAlts}
@@ -767,11 +779,11 @@ function AnalysisView({
                       animation: "spin 1s linear infinite",
                       display: "inline-block"
                     }} />
-                    Searching Amazon...
+                    Finding Sustainable Alternatives...
                   </>
                 ) : (
                   <>
-                    🔍 Find Other Sustainable Products
+                    🔍 Find Better Sustainable Products
                   </>
                 )}
               </button>
@@ -852,6 +864,31 @@ function AnalysisView({
                     </a>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* No Sustainable Alternatives Message */}
+            {noAlternatives && noAltsReason && (
+              <div style={{
+                background: "#f3f4f6",
+                borderRadius: 8,
+                padding: 16,
+                border: "1px solid #d1d5db",
+                marginTop: 16,
+                textAlign: "center"
+              }}>
+                <span style={{ fontSize: 32, display: "block", marginBottom: 8 }}>🔧</span>
+                <h4 style={{ margin: "0 0 8px", fontSize: 14, color: "#374151" }}>
+                  No Sustainable Alternatives
+                </h4>
+                <p style={{ 
+                  margin: 0, 
+                  fontSize: 12, 
+                  color: "#6b7280",
+                  lineHeight: 1.5
+                }}>
+                  {noAltsReason}
+                </p>
               </div>
             )}
 

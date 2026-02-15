@@ -139,7 +139,9 @@ router.post('/alternatives', async (req: Request, res: Response) => {
       data: {
         originalProduct: result.originalProduct,
         originalIssues: result.originalIssues,
-        alternatives: result.alternatives
+        alternatives: result.alternatives,
+        noAlternatives: result.noAlternatives || false,
+        noAlternativesReason: result.noAlternativesReason || null
       }
     });
   } catch (error) {
