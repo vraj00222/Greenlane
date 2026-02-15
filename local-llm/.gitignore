@@ -1,0 +1,16 @@
+# Build files
+build/
+cmake-build-*/
+
+# Model files (large, not tracked)
+models/*.pte
+models/*.bin
+models/*.gguf
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
