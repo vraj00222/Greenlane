@@ -1,173 +1,238 @@
-# 📁 GreenLane Codebase Documentation
+# 📁 GreenLane — Codebase Documentation
 
-> Quick reference for all TypeScript files and their purposes
+> File-by-file reference for the entire GreenLane repository.
 
 ---
 
-## 🔧 Backend (`/backend/src/`)
+## Root
+
+| File | Description |
+|------|-------------|
+| `package.json` | Root monorepo config (pnpm workspaces). Declares workspaces for `extension`, `backend`, `dashboard`, and `shared`. |
+| `pnpm-workspace.yaml` | pnpm workspace definition linking all sub-packages. |
+| `pnpm-lock.yaml` | Lockfile for deterministic dependency resolution across all workspaces. |
+| `.gitignore` | Root ignore rules: secrets, `node_modules`, build outputs, `.venv`, ML model binaries (`.pte`, `.gguf`), IDE configs. |
+| `README.md` | Project overview, architecture, setup guide, and API reference. |
+| `CODEBASE.md` | This file — detailed documentation of every source file. |
+| `LOCAL_LLM_TASKS.md` | Development task tracker for the ExecuTorch local LLM integration. |
+
+---
+
+## Extension — Chrome Extension (`extension/`)
+
+Plasmo-based Chrome MV3 extension with React UI, content scripts, and a background service worker.
+
+| File | Description |
+|------|-------------|
+| `package.json` | Extension manifest and dependencies. Declares host permissions for Amazon domains, `activeTab` and `storage` permissions. Uses Plasmo v0.90.5. |
+| `tsconfig.json` | TypeScript config for the extension, extending Plasmo defaults. |
+| `.prettierrc.mjs` | Prettier formatting config for the extension codebase. |
+| `.env.example` | Example environment variables (API URL). |
+| `.gitignore` | Extension-specific ignores: `node_modules`, `.plasmo`, `build/`, `dist/`. |
+
+### TypeScript Files
+
+| File | Description |
+|------|-------------|
+| `popup.tsx` | **Main popup UI** (~1600 lines). Renders the full extension interface: sustainability score display, positives/negatives breakdown, eco-alternatives, tips, settings panel, login form, and the **Go Private** toggle. Manages two analysis modes — cloud (green theme, sends to backend) and private (purple theme, calls local ExecuTorch on port 8765). Handles cache-key isolation between modes, prevents private scans from being recorded to the dashboard, and re-triggers analysis on mode toggle. |
+| `background.ts` | **Background service worker**. Handles user auth (register/login via backend API), product analysis requests with in-memory caching (30-minute TTL with mode-aware cache keys), and the `RECORD_SCAN` message handler that saves cloud-mode scans to the backend. Routes messages between popup and content scripts. |
+| `contents/amazon-scraper.ts` | **Content script** injected on Amazon product pages. Scrapes product data from the DOM — title, price, brand, image URL, materials, and product URL — and responds to `GET_PRODUCT_DATA` messages from the popup with the extracted data. |
+
+### Workflows
+
+| File | Description |
+|------|-------------|
+| `.github/workflows/submit.yml` | GitHub Actions workflow for Chrome Web Store submission (Plasmo BPP). |
+
+---
+
+## Backend — Express API Server (`backend/`)
+
+Node.js + Express + TypeScript API serving sustainability analysis, user management, scan tracking, and achievement gamification.
+
+| File | Description |
+|------|-------------|
+| `package.json` | Backend dependencies: Express, Mongoose, cors, dotenv, novita-sdk, tsx. Dev script runs via `tsx watch`. |
+| `tsconfig.json` | TypeScript config targeting ES2020 with strict mode. |
+| `.env.example` | Example env vars: `MONGODB_URI`, `NOVITA_API_KEY`, `ACTIAN_*` credentials, `PORT`. |
+| `.gitignore` | Backend-specific ignores: `node_modules`, `.env`, `dist/`, `*.log`, secrets. |
+| `test-api.sh` | Shell script with curl commands to smoke-test all API endpoints. |
 
 ### Config
-| File | Purpose |
-|------|---------|
-| `config/database.ts` | MongoDB connection manager. Handles connecting/disconnecting to MongoDB with retry logic, connection status tracking, and event handlers for connection state changes. |
 
-### Models
-| File | Purpose |
-|------|---------|
-| `models/index.ts` | Central export file for all Mongoose models. Re-exports User, Product, Scan, Achievement models and their TypeScript interfaces for easy importing. |
-| `models/User.ts` | User schema and model. Defines user profile (email, displayName), stats (totalScans, averageScore, streak), preferences (theme, notifications), and achievements array. Includes leaderboard query method. |
-| `models/Product.ts` | Product schema for scanned items. Stores product details (title, brand, price, URL, imageUrl), sustainability analysis (greenScore, reasons, positives, negatives), and scan count. Includes findOrCreate and getTopSustainable methods. |
-| `models/Scan.ts` | Scan history schema. Links users to products they've analyzed, stores greenScore, userChoice (purchased/skipped/alternative), and carbonImpact. Includes methods for user history, stats, and weekly activity aggregation. |
-| `models/Achievement.ts` | Achievement system schemas. Defines achievement badges (code, name, icon, category, rarity, requirement, xpReward) and UserAchievement join table. Includes seedAchievements method to populate 12 default achievements. |
+| File | Description |
+|------|-------------|
+| `src/config/database.ts` | MongoDB connection manager using Mongoose. Handles connection retries (up to 5 attempts), reconnection events, and exposes `connectDB()`, `disconnectDB()`, and `isConnected()`. |
 
-### Routes
-| File | Purpose |
-|------|---------|
-| `routes/users.ts` | User API endpoints. GET user by ID, GET by extensionId, POST create/login user, PATCH update user, GET user stats, GET leaderboard top users. Handles user registration and profile management. |
-| `routes/scans.ts` | Scan API endpoints. POST record new scan (creates product, updates user stats, checks achievements), GET user scan history, GET weekly activity, PATCH update user choice. Core scanning workflow. |
-| `routes/achievements.ts` | Achievement API endpoints. GET all achievements, GET user achievements with progress calculation, POST seed achievements, POST manually award achievement. Tracks badge earning progress. |
-| `routes/products.ts` | Product API endpoints. GET product by ID, GET by URL, GET top sustainable products, GET product stats overview, GET search products. Product catalog management. |
+### Models (Mongoose Schemas)
 
-### Services
-| File | Purpose |
-|------|---------|
-| `services/novita.ts` | Novita AI (DeepSeek R1) integration. Sends product data to AI for sustainability analysis, parses JSON response extracting greenScore, reasons, positives, negatives, and recommendation. Handles DeepSeek thinking tags. |
+| File | Description |
+|------|-------------|
+| `src/models/index.ts` | Barrel file re-exporting all Mongoose models and their TypeScript interfaces. |
+| `src/models/User.ts` | **User schema**. Fields: email, displayName, extensionId, stats (totalScans, averageScore, carbonSaved, currentStreak, longestStreak, greenChoices), preferences (theme, notifications, privacy), and linked achievements array. Includes a leaderboard query static method. |
+| `src/models/Product.ts` | **Product schema**. Fields: title, brand, price, URL, imageUrl, materials, category, sustainability analysis (greenScore, reasons, positives, negatives, carbonFootprint, recommendation), and scanCount. Statics: `findOrCreate`, `getTopSustainable`. |
+| `src/models/Scan.ts` | **Scan schema**. Links a user to a product scan with greenScore, userChoice (purchased/skipped/alternative), carbonImpact, and timestamps. Methods for user history, stats aggregation, and weekly activity. |
+| `src/models/Achievement.ts` | **Achievement schema**. Defines gamification badges with code, name, description, icon, category (scanning/sustainability/engagement/streak), rarity (common/rare/epic/legendary), requirement threshold, and xpReward. `UserAchievement` join table tracks unlocks. Includes `seedAchievements()` for 12 default badges. |
+| `src/models/Notification.ts` | **Notification schema**. Types: achievement, streak, tip, system. Fields: userId, title, message, type, read status. Static factory methods for creating typed notifications. |
 
-### Core
-| File | Purpose |
-|------|---------|
-| `server.ts` | Main Express server entry point. Sets up CORS, JSON middleware, logging. Mounts all API routes, defines /health endpoint, /api/analyze-product endpoint with AI + heuristic fallback, starts server with MongoDB connection. |
+### Routes (REST API)
 
----
+| File | Description |
+|------|-------------|
+| `src/routes/users.ts` | `/api/users` — GET by ID or extensionId, POST create/login (find-or-create by email), PATCH update preferences, GET leaderboard top users. |
+| `src/routes/scans.ts` | `/api/scans` — POST record new scan (creates product, updates user stats, triggers achievement checks), GET user scan history, GET weekly activity aggregation, PATCH update user choice on a scan. |
+| `src/routes/achievements.ts` | `/api/achievements` — GET all achievement definitions, GET user achievements with progress calculation, POST seed default achievements, POST manually award an achievement. |
+| `src/routes/products.ts` | `/api/products` — GET product by ID or URL, GET top sustainable products, GET product search, GET sustainable alternatives for a given product. |
+| `src/routes/notifications.ts` | `/api/notifications` — GET user notifications (with optional unread-only filter), GET unread count, PATCH mark as read. |
 
-## 🖥️ Dashboard (`/dashboard/src/`)
+### Services (AI & Vector DB)
 
-### App Pages (Next.js App Router)
-| File | Purpose |
-|------|---------|
-| `app/layout.tsx` | Root layout component. Wraps app with ThemeProvider (dark/light mode), UserProvider (auth context), and global styles. Sets up HTML structure and metadata. |
-| `app/page.tsx` | Main dashboard home page. Shows stats overview, activity chart, recent scans, achievements preview, and leaderboard. Uses DashboardLayout with connected components fetching real data. |
-| `app/achievements/page.tsx` | Achievements page. Displays all user achievements in a grid, showing earned badges and progress toward unearned ones. Uses AchievementsConnected component. |
-| `app/history/page.tsx` | Scan history page. Shows complete list of all products user has scanned with greenScores, dates, and product details. Paginated scan history view. |
-| `app/leaderboard/page.tsx` | Leaderboard page. Shows top users ranked by average sustainability score, displaying avatars, stats, and rankings. Uses LeaderboardConnected component. |
-| `app/settings/page.tsx` | Settings page. User preferences for notifications (email, push, weekly report), privacy (show on leaderboard, share stats), and theme selection. Form to update preferences. |
-| `app/help/page.tsx` | Help/FAQ page. Static page with instructions on how to use the extension, interpret scores, and contact support. |
+| File | Description |
+|------|-------------|
+| `src/services/novita.ts` | **Novita AI integration**. Calls OpenAI-compatible API with a detailed 15-metric sustainability scoring prompt. Uses DeepSeek V3 as primary model with automatic fallback to Llama 3.1 70B and Qwen 2.5 72B on rate limits. Parses structured JSON responses with green score, reasons, positives, negatives, and recommendations. |
+| `src/services/actian.ts` | **Actian Vector DB integration**. Provides semantic search for sustainable product alternatives. Detects product categories, searches eco-product embeddings with similarity scoring, and returns category-specific sustainability tips (e.g., GPU power efficiency, clothing fabric guides). |
 
-### Components - Connected (Real Data)
-| File | Purpose |
-|------|---------|
-| `components/stats-overview-connected.tsx` | Fetches real user stats from API using SWR. Displays totalScans, averageScore, carbonSaved, and currentStreak. Shows loading skeleton while fetching. |
-| `components/activity-chart-connected.tsx` | Fetches weekly scan activity from API. Renders bar chart showing scans per day for the past week. Handles empty state when no scans exist. |
-| `components/recent-activity-connected.tsx` | Fetches recent scan history from API. Displays list of recently scanned products with greenScore badges, product images, and timestamps. |
-| `components/achievements-connected.tsx` | Fetches user achievements from API. Shows earned achievements with icons and XP, plus progress bars for unearned achievements. Displays summary stats. |
-| `components/leaderboard-connected.tsx` | Fetches leaderboard rankings from API. Displays top users with rank, avatar, name, averageScore, and totalScans. Highlights current user if in top 10. |
+### Server Entry Point
 
-### Components - UI Display
-| File | Purpose |
-|------|---------|
-| `components/stats-overview.tsx` | Pure UI component for stats display. Renders 4 stat cards (scans, score, carbon, streak) with icons and formatting. Accepts data as props. |
-| `components/activity-chart.tsx` | Pure UI component for activity chart. Renders Recharts bar chart with date labels and scan counts. Accepts weekly data array as props. |
-| `components/recent-activity.tsx` | Pure UI component for scan list. Renders product cards with image, title, score badge, and timestamp. Accepts scans array as props. |
-| `components/achievements-card.tsx` | Pure UI component for single achievement. Shows icon, name, description, XP reward, and earned/progress status. Used in achievement grids. |
-| `components/leaderboard-card.tsx` | Pure UI component for leaderboard row. Shows rank number, user avatar, display name, and stats. Used in leaderboard table. |
-| `components/category-radar.tsx` | Radar chart component for category breakdown. Shows sustainability scores across different product categories (electronics, clothing, food, etc.). |
-| `components/login-card.tsx` | Login form component. Email input with sign-in button. Calls UserContext login function. Shows loading state during authentication. |
-
-### Components - Layout
-| File | Purpose |
-|------|---------|
-| `components/dashboard-layout.tsx` | Main dashboard wrapper. Combines sidebar navigation, header, and content area. Handles responsive layout for mobile/desktop. |
-| `components/app-sidebar.tsx` | Navigation sidebar component. Links to Dashboard, History, Achievements, Leaderboard, Settings, Help. Shows user avatar and logout button. Uses shadcn Sidebar. |
-| `components/app-header.tsx` | Top header bar. Shows page title, user greeting, and mobile menu toggle. Includes theme switcher button. |
-| `components/theme-provider.tsx` | Next-themes provider wrapper. Manages dark/light/system theme state. Provides theme context to entire app. |
-
-### Components - UI Primitives (shadcn/ui)
-| File | Purpose |
-|------|---------|
-| `components/ui/button.tsx` | Button component with variants (default, destructive, outline, ghost, link) and sizes. Built on Radix UI primitives. |
-| `components/ui/card.tsx` | Card container with Header, Title, Description, Content, Footer subcomponents. Used for all dashboard cards. |
-| `components/ui/input.tsx` | Styled text input component. Used in forms for email entry and search. |
-| `components/ui/label.tsx` | Form label component. Pairs with inputs for accessibility. Uses Radix Label primitive. |
-| `components/ui/badge.tsx` | Small badge/tag component with color variants. Used for greenScore display and achievement rarity. |
-| `components/ui/avatar.tsx` | User avatar component with image and fallback initials. Uses Radix Avatar primitive. |
-| `components/ui/progress.tsx` | Progress bar component for achievement progress and loading states. |
-| `components/ui/skeleton.tsx` | Loading placeholder component. Shows animated gray boxes while content loads. |
-| `components/ui/tabs.tsx` | Tab navigation component. Used for switching between views. Uses Radix Tabs primitive. |
-| `components/ui/tooltip.tsx` | Hover tooltip component for additional info. Uses Radix Tooltip primitive. |
-| `components/ui/separator.tsx` | Horizontal/vertical line divider. Used between sections. |
-| `components/ui/scroll-area.tsx` | Custom scrollable container with styled scrollbar. Uses Radix ScrollArea. |
-| `components/ui/sheet.tsx` | Slide-out panel component for mobile navigation. Uses Radix Dialog primitive. |
-| `components/ui/sidebar.tsx` | Complex sidebar navigation system. Collapsible, supports icons and nested items. Core dashboard navigation. |
-| `components/ui/chart.tsx` | Recharts wrapper components. Provides ChartContainer, ChartTooltip, ChartLegend for data visualization. |
-
-### Lib (Utilities)
-| File | Purpose |
-|------|---------|
-| `lib/api.ts` | API client functions. Defines fetcher for SWR, base URL config, and typed API call functions for users, scans, achievements endpoints. |
-| `lib/hooks.ts` | Custom React hooks. useUser, useScans, useAchievements, useLeaderboard - SWR hooks for data fetching with caching and revalidation. |
-| `lib/utils.ts` | Utility functions. cn() for className merging (clsx + tailwind-merge), formatDate, formatScore helpers. |
-| `lib/mock-data.ts` | Mock data for development/testing. Sample users, scans, achievements for UI development before API integration. |
-| `lib/user-context.tsx` | React Context for user authentication. Provides userId, login/logout functions, loading state. Persists to localStorage. |
-
-### Hooks
-| File | Purpose |
-|------|---------|
-| `hooks/use-mobile.ts` | Custom hook for responsive design. Returns boolean isMobile based on screen width. Used for conditional mobile/desktop rendering. |
+| File | Description |
+|------|-------------|
+| `src/server.ts` | **Main Express server** (port 3001). Configures CORS, JSON parsing, mounts all route modules under `/api/*`, defines the inline `/api/analyze-product` endpoint (calls Novita + Actian), provides `/health` and `/api/log-choice` endpoints, connects to MongoDB, and starts listening. |
 
 ---
 
-## 🧩 Extension (`/extension/`)
+## Dashboard — Next.js Web App (`dashboard/`)
 
-| File | Purpose |
-|------|---------|
-| `popup.tsx` | Main extension popup UI. Shows login form or analysis interface. Displays product info, greenScore, positives/negatives, alternatives. Buttons for analyze, settings, and dashboard link. Manages all popup state. |
-| `background.ts` | Service worker (background script). Handles user registration/login API calls, stores userId in chrome.storage, communicates with content scripts. Manages extension lifecycle and API communication. |
-| `contents/amazon-scraper.ts` | Content script for Amazon pages. Extracts product data (title, brand, price, imageUrl, URL) from DOM. Sends data to popup via chrome.runtime messaging when user clicks analyze. |
+Next.js 15 web dashboard with shadcn/ui components, showing user stats, scan history, achievements, and leaderboard.
+
+| File | Description |
+|------|-------------|
+| `package.json` | Dashboard dependencies: Next.js 15, React 19, Tailwind CSS, shadcn/ui, Recharts, SWR, Radix UI primitives. |
+| `tsconfig.json` | TypeScript config with `@/` path alias to `src/`. |
+| `next.config.ts` | Next.js config (minimal, default settings). |
+| `components.json` | shadcn/ui component registry config (New York style, CSS variables enabled). |
+| `eslint.config.mjs` | ESLint config extending Next.js defaults. |
+| `postcss.config.mjs` | PostCSS config with Tailwind CSS plugin. |
+| `next-env.d.ts` | Auto-generated Next.js type declarations. |
+
+### Pages (App Router)
+
+| File | Description |
+|------|-------------|
+| `src/app/layout.tsx` | **Root layout**. Wraps the app in `ThemeProvider` (light/dark), `TooltipProvider`, `UserProvider` (auth context), and `DashboardLayout` (sidebar + header). Uses Geist font. |
+| `src/app/globals.css` | Tailwind CSS config with custom color theme variables for light/dark modes, including sidebar, chart, and accent color tokens. |
+| `src/app/page.tsx` | **Dashboard home page**. Shows welcome message with leaderboard rank, stats overview cards, weekly activity chart, recent scans list, achievements widget, and leaderboard widget. |
+| `src/app/history/page.tsx` | **Scan history page**. Lists all past product scans with green scores, product images, timestamps, and interactive purchased/skipped choice buttons that PATCH the backend. |
+| `src/app/achievements/page.tsx` | **Achievements page**. Displays all user achievements grouped by category with rarity-colored badges (common/rare/epic/legendary), progress bars, XP earned, and unlock dates. |
+| `src/app/leaderboard/page.tsx` | **Leaderboard page**. Ranks users by total scans and average sustainability score. Crown/medal icons for top 3, current user highlighted. |
+| `src/app/settings/page.tsx` | **Settings page**. Shows account profile info, app preferences (theme toggle, notification settings, privacy), and logout. |
+| `src/app/help/page.tsx` | **Help center**. Static FAQ section (eco-score methodology, data privacy) with links to documentation, support, and GitHub. |
+
+### Components
+
+| File | Description |
+|------|-------------|
+| `src/components/dashboard-layout.tsx` | Layout wrapper composing `AppSidebar` and `AppHeader` around page content with sidebar collapse state management. |
+| `src/components/app-sidebar.tsx` | Collapsible sidebar navigation with links to Dashboard, History, Achievements, Leaderboard, Settings, and Help. GreenLane logo and branding. |
+| `src/components/app-header.tsx` | Top header bar with search input, theme toggle (light/dark), notifications dropdown with unread badge, and user avatar with XP level display. |
+| `src/components/stats-overview-connected.tsx` | Dashboard widget showing key user stats: average eco-score as a radial chart, total scans count, estimated carbon saved, and current streak. |
+| `src/components/activity-chart-connected.tsx` | Weekly scan activity rendered as bar charts (scan count) and area charts (average score) using Recharts, with tabs to toggle between views. |
+| `src/components/recent-activity-connected.tsx` | Scrollable list of the user's most recent product scans with color-coded score badges and relative timestamps. |
+| `src/components/achievements-connected.tsx` | Dashboard widget fetching and displaying user achievements with rarity styling, progress bars, and XP earned. |
+| `src/components/leaderboard-connected.tsx` | Compact leaderboard list with rank icons, user avatars, scan counts, and score highlights. |
+| `src/components/login-card.tsx` | Login/signup form with email and display name fields, plus a "Demo Login" button for quick testing. Uses `UserContext` for auth. |
+| `src/components/theme-provider.tsx` | Thin wrapper around `next-themes` `ThemeProvider` for light/dark/system theme support. |
+
+### UI Primitives (shadcn/ui)
+
+| File | Description |
+|------|-------------|
+| `src/components/ui/avatar.tsx` | Avatar component with image and fallback. |
+| `src/components/ui/badge.tsx` | Badge component with variant styling. |
+| `src/components/ui/button.tsx` | Button component with size/variant props. |
+| `src/components/ui/card.tsx` | Card layout component (header, content, footer). |
+| `src/components/ui/chart.tsx` | Recharts wrapper with theme-aware tooltip and legend. |
+| `src/components/ui/dropdown-menu.tsx` | Dropdown menu built on Radix UI. |
+| `src/components/ui/input.tsx` | Styled text input component. |
+| `src/components/ui/label.tsx` | Form label component. |
+| `src/components/ui/progress.tsx` | Progress bar component. |
+| `src/components/ui/scroll-area.tsx` | Scrollable area with custom scrollbar. |
+| `src/components/ui/separator.tsx` | Visual separator / divider. |
+| `src/components/ui/sheet.tsx` | Slide-out sheet / drawer (Radix Dialog). |
+| `src/components/ui/sidebar.tsx` | Sidebar layout primitives (provider, trigger, content, menu). |
+| `src/components/ui/skeleton.tsx` | Loading skeleton placeholder. |
+| `src/components/ui/tabs.tsx` | Tabbed interface component. |
+| `src/components/ui/tooltip.tsx` | Tooltip component (Radix). |
+
+### Library / Utilities
+
+| File | Description |
+|------|-------------|
+| `src/lib/api.ts` | **API client module**. Typed functions for all backend endpoints: user CRUD, scans, achievements, leaderboard, weekly activity, notifications, health checks. Base URL from `NEXT_PUBLIC_API_URL`. |
+| `src/lib/hooks.ts` | **SWR data-fetching hooks**. `useUser`, `useUserScans`, `useWeeklyActivity`, `useUserAchievements`, `useLeaderboard`, `useNotifications` — all with 5-second auto-refresh intervals. |
+| `src/lib/user-context.tsx` | **Auth context provider**. Manages login/logout/current user state with `localStorage` persistence and SWR-based user data fetching. Provides `UserContext` consumed by all pages. |
+| `src/lib/utils.ts` | Utility functions: `cn()` for Tailwind class merging (clsx + tailwind-merge), `formatNumber()` for compact display, and score-to-color mapping helpers. |
+| `src/hooks/use-mobile.ts` | Custom React hook returning `true` when viewport is below 768px (mobile breakpoint) using `matchMedia` listener. |
 
 ---
 
-## 📦 Shared (`/shared/`)
+## Shared Types (`shared/`)
 
-| File | Purpose |
-|------|---------|
-| `types/index.ts` | Shared TypeScript interfaces. Defines Product, User, Scan, Achievement, Analysis types used across backend, dashboard, and extension. Single source of truth for data shapes. |
-
----
-
-## 🔗 File Relationships
-
-```
-Extension                    Backend                     Dashboard
-─────────                    ───────                     ─────────
-popup.tsx ──────────────────► server.ts                  page.tsx
-    │                            │                           │
-    │  (analyze request)         │                           │
-    ▼                            ▼                           ▼
-background.ts                routes/*.ts ◄─────────── *-connected.tsx
-    │                            │                           │
-    │  (user auth)               │                           │
-    ▼                            ▼                           ▼
-amazon-scraper.ts            models/*.ts                 lib/api.ts
-    │                            │                           │
-    │  (product data)            │                           │
-    └────────────────────────────┼───────────────────────────┘
-                                 │
-                                 ▼
-                            MongoDB
-```
+| File | Description |
+|------|-------------|
+| `package.json` | Shared package config (name: `@greenlane/shared`). |
+| `types/index.ts` | **Shared TypeScript interfaces** used across extension, backend, and dashboard: `ProductData`, `SustainabilityAnalysis` (greenScore, reasons, positives, negatives, recommendation, carbonFootprint), `AlternativeProduct`, `AnalysisResponse`, `UserChoice`, `UserStats`, `Achievement`, and `DashboardData`. |
 
 ---
 
-## 📊 Data Flow Example: Analyzing a Product
+## Local LLM — ExecuTorch On-Device Inference (`local-llm/`)
 
-1. **amazon-scraper.ts** extracts product data from Amazon page
-2. **popup.tsx** receives data via messaging, displays in UI
-3. User clicks "Analyze" → **popup.tsx** calls backend API
-4. **server.ts** receives request at `/api/analyze-product`
-5. **novita.ts** sends product to AI for sustainability analysis
-6. **server.ts** returns greenScore, reasons, alternatives
-7. **popup.tsx** displays results, user can save scan
-8. **scans.ts** route saves scan to MongoDB via **Scan.ts** model
-9. **User.ts** model updates user stats (totalScans, averageScore)
-10. **Achievement.ts** checks if any new achievements earned
-11. **dashboard** pages show updated stats via **\*-connected.tsx** components
+Meta ExecuTorch + Llama 3.2 1B running locally in a Docker container for privacy-first sustainability analysis.
+
+| File | Description |
+|------|-------------|
+| `.gitignore` | Ignores build outputs, model binaries (`.pte`, `.bin`, `.gguf`), IDE configs, Python cache. |
+| `README.md` | Local LLM setup guide, Docker usage instructions, and API reference. |
+
+### Python Server (Production — Docker)
+
+| File | Description |
+|------|-------------|
+| `server_docker.py` | **Main inference server** (~640 lines, port 8765). Loads the Llama 3.2 1B `.pte` model via ExecuTorch runtime with custom ops (`llama::custom_sdpa.out`, `llama::update_cache.out`) loaded through `ctypes`. Uses `pytorch_tokenizers.TiktokenTokenizer` for encoding. Generates sustainability analysis with completion-style prompting, extracts scores via regex, and blends 60% LLM score + 40% keyword score. Provides `/analyze` and `/health` endpoints. Reloads model per inference to reset KV cache. Suppresses EOS tokens during generation. |
+
+### Model Export Scripts
+
+| File | Description |
+|------|-------------|
+| `export_executorch_model.py` | Script to export a custom `SustainabilityScorer` neural network (keyword-feature-based, 64→128→1 architecture) to ExecuTorch `.pte` format. |
+| `export_model.py` | Script to export SmolLM (135M param) or other HuggingFace models to ExecuTorch `.pte` format using `torch.export` and the EXIR pipeline. |
+
+### C++ Engine (Alternative Backend)
+
+| File | Description |
+|------|-------------|
+| `src/inference.h` | C++ header defining `InferenceEngine` class (pimpl pattern) with `loadModel()`, `analyze()`, and stat methods. Declares `SustainabilityAnalysis` and `ProductData` structs. |
+| `src/inference.cpp` | C++ `InferenceEngine` implementation. Builds sustainability prompts, runs keyword-based inference (with optional ExecuTorch backend when compiled with `USE_EXECUTORCH`), and parses JSON analysis results. |
+| `src/tokenizer.h` | C++ header for `Tokenizer` class with encode/decode methods (pimpl pattern). |
+| `src/tokenizer.cpp` | C++ tokenizer implementation. Simple whitespace-based mock tokenizer with hash-based token IDs (placeholder for full SentencePiece integration). |
+| `src/main.cpp` | C++ HTTP server using cpp-httplib. Exposes `/analyze`, `/health`, and CORS-enabled endpoints. Loads the ExecuTorch model and delegates to `InferenceEngine`. |
+| `CMakeLists.txt` | CMake build config for the C++ inference server. Links ExecuTorch libraries when available, falls back to mock inference. |
+
+### Docker & DevOps
+
+| File | Description |
+|------|-------------|
+| `Dockerfile` | Multi-stage Docker image building ExecuTorch with XNNPACK delegate on Python 3.11-slim for ARM64 Llama inference. Installs `executorch`, `pytorch-tokenizers`, and `tiktoken`. |
+| `docker-compose.yml` | Docker Compose config running the ExecuTorch LLM container on port 8765 with the Llama 3.2 1B model and `server_docker.py` volume-mounted. Targets `linux/arm64`. |
+| `docker-run.sh` | Shell script that checks prerequisites, tries pulling the pre-built `psiddh/executorch-hackathon:basic-arm64` image, falls back to building from the Dockerfile, and starts the container with volume mounts. |
+| `setup_executorch.sh` | Setup script that downloads the Llama 3.2 1B `.pte` model (~2.3GB) and tokenizer from HuggingFace, then checks/installs the ExecuTorch runtime. |
+| `scripts/download_model.sh` | Standalone script to download the Llama 3.2 1B ET model files from HuggingFace. |
+
+### Model Files
+
+| File | Description |
+|------|-------------|
+| `models/Llama-3.2-1B-ET/README.md` | Model card for the Llama 3.2 1B ExecuTorch export. |
+| `models/Llama-3.2-1B-ET/config.json` | Model config (architecture: `LlamaForCausalLM`). |
+| `models/Llama-3.2-1B-ET/params.json` | Model hyperparameters: dim=2048, n_layers=16, n_heads=32, vocab_size=128256, max_seq_len=2048. |
+| `models/Llama-3.2-1B-ET/tokenizer.model` | TikToken tokenizer model file (2.1MB) used by `pytorch_tokenizers.TiktokenTokenizer`. |
+| `models/Llama-3.2-1B-ET/llama3_2-1B.pte` | *(git-ignored, 2.3GB)* — The compiled ExecuTorch model binary. Downloaded via `setup_executorch.sh` or `docker-run.sh`. |
