@@ -309,7 +309,17 @@ function AnalysisView({
   onSettings,
   onRetry,
   onLogin,
-  scanStatus
+  scanStatus,
+  amazonAlts,
+  setAmazonAlts,
+  noAlternatives,
+  setNoAlternatives,
+  noAltsReason,
+  setNoAltsReason,
+  altsError,
+  setAltsError,
+  searchingAlts,
+  setSearchingAlts
 }: {
   product: ProductData | null
   analysis: AnalysisResult | null
@@ -320,12 +330,17 @@ function AnalysisView({
   onRetry: () => void
   onLogin: () => void
   scanStatus: 'idle' | 'saving' | 'saved' | 'error'
+  amazonAlts: AmazonAlternative[]
+  setAmazonAlts: (alts: AmazonAlternative[]) => void
+  noAlternatives: boolean
+  setNoAlternatives: (val: boolean) => void
+  noAltsReason: string | null
+  setNoAltsReason: (val: string | null) => void
+  altsError: string | null
+  setAltsError: (val: string | null) => void
+  searchingAlts: boolean
+  setSearchingAlts: (val: boolean) => void
 }) {
-  const [searchingAlts, setSearchingAlts] = useState(false)
-  const [amazonAlts, setAmazonAlts] = useState<AmazonAlternative[]>([])
-  const [altsError, setAltsError] = useState<string | null>(null)
-  const [noAlternatives, setNoAlternatives] = useState(false)
-  const [noAltsReason, setNoAltsReason] = useState<string | null>(null)
 
   // Find eco alternatives on Amazon
   const findAlternatives = async () => {
@@ -931,6 +946,46 @@ function IndexPopup() {
   const [isAnalyzing, setIsAnalyzing] = useState(false) // Prevent duplicate clicks
   const [scanStatus, setScanStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [userLoaded, setUserLoaded] = useState(false)
+  
+  // Alternatives state - lifted from AnalysisView for persistence
+  const [amazonAlts, setAmazonAlts] = useState<AmazonAlternative[]>([])
+  const [noAlternatives, setNoAlternatives] = useState(false)
+  const [noAltsReason, setNoAltsReason] = useState<string | null>(null)
+  const [altsError, setAltsError] = useState<string | null>(null)
+  const [searchingAlts, setSearchingAlts] = useState(false)
+
+  // Load cached alternatives on mount
+  useEffect(() => {
+    chrome.storage.local.get(['cachedAlternatives', 'cachedAlternativesUrl'], (result) => {
+      if (result.cachedAlternatives && result.cachedAlternativesUrl) {
+        // Check if current tab matches cached URL
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          const currentUrl = tabs[0]?.url
+          if (currentUrl && currentUrl === result.cachedAlternativesUrl) {
+            const cached = result.cachedAlternatives
+            if (cached.amazonAlts) setAmazonAlts(cached.amazonAlts)
+            if (cached.noAlternatives) setNoAlternatives(cached.noAlternatives)
+            if (cached.noAltsReason) setNoAltsReason(cached.noAltsReason)
+          }
+        })
+      }
+    })
+  }, [])
+
+  // Save alternatives to storage when they change
+  useEffect(() => {
+    if (amazonAlts.length > 0 || noAlternatives) {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const currentUrl = tabs[0]?.url
+        if (currentUrl) {
+          chrome.storage.local.set({
+            cachedAlternatives: { amazonAlts, noAlternatives, noAltsReason },
+            cachedAlternativesUrl: currentUrl
+          })
+        }
+      })
+    }
+  }, [amazonAlts, noAlternatives, noAltsReason])
 
   // Load user data on mount
   useEffect(() => {
@@ -1166,6 +1221,16 @@ function IndexPopup() {
       onRetry={analyzeProduct}
       onLogin={() => setView("login")}
       scanStatus={scanStatus}
+      amazonAlts={amazonAlts}
+      setAmazonAlts={setAmazonAlts}
+      noAlternatives={noAlternatives}
+      setNoAlternatives={setNoAlternatives}
+      noAltsReason={noAltsReason}
+      setNoAltsReason={setNoAltsReason}
+      altsError={altsError}
+      setAltsError={setAltsError}
+      searchingAlts={searchingAlts}
+      setSearchingAlts={setSearchingAlts}
     />
   )
 }
