@@ -1,7 +1,7 @@
-"use client"
+﻿"use client"
 
 import * as React from "react"
-import { Bell, Search, Moon, Sun, User, Check, X } from "lucide-react"
+import { Bell, Search, Moon, Sun, User } from "lucide-react"
 import { useTheme } from "next-themes"
 import Link from "next/link"
 import { formatDistanceToNow } from "date-fns"
@@ -38,34 +38,16 @@ export function AppHeader() {
   const totalXP = (achievementData?.summary?.totalXP || 0) + (user?.stats?.totalScans || 0) * 10
   const level = Math.floor(totalXP / 100) + 1
 
-  const markAsRead = async (notificationId: string) => {
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
-      await fetch(`${apiUrl}/api/notifications/${notificationId}/read`, {
-        method: 'PATCH',
-      })
-      mutateNotifications()
-    } catch (error) {
-      console.error('Failed to mark notification as read:', error)
-    }
+  const markAsRead = async (_notificationId: string) => {
+    mutateNotifications()
   }
 
   const markAllAsRead = async () => {
-    if (!userId) return
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
-      await fetch(`${apiUrl}/api/notifications/user/${userId}/read-all`, {
-        method: 'PATCH',
-      })
-      mutateNotifications()
-    } catch (error) {
-      console.error('Failed to mark all as read:', error)
-    }
+    mutateNotifications()
   }
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6">
-      {/* Search */}
       <div className="flex items-center gap-4">
         <div className="relative w-64 lg:w-96">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -76,9 +58,7 @@ export function AppHeader() {
         </div>
       </div>
 
-      {/* Actions */}
       <div className="flex items-center gap-2">
-        {/* Theme Toggle */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -94,7 +74,6 @@ export function AppHeader() {
           <TooltipContent>Toggle theme</TooltipContent>
         </Tooltip>
 
-        {/* Notifications */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative">
@@ -111,9 +90,9 @@ export function AppHeader() {
             <DropdownMenuLabel className="flex items-center justify-between">
               <span>Notifications</span>
               {unreadCount > 0 && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
+                <Button
+                  variant="ghost"
+                  size="sm"
                   className="h-auto p-1 text-xs text-muted-foreground hover:text-foreground"
                   onClick={markAllAsRead}
                 >
@@ -156,16 +135,15 @@ export function AppHeader() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* User Menu */}
         <Link href="/settings" className="flex items-center gap-3 pl-3 border-l ml-2 hover:opacity-80 transition-opacity">
           <div className="hidden sm:block text-right">
             <p className="text-sm font-medium">{user?.displayName || 'Guest'}</p>
             <p className="text-xs text-muted-foreground">Level {level} • {totalXP.toLocaleString()} XP</p>
           </div>
           <Avatar className="h-9 w-9 border-2 border-emerald-500/30">
-            <AvatarImage 
-              src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${userId || 'guest'}`} 
-              alt={user?.displayName || 'User'} 
+            <AvatarImage
+              src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${userId || 'guest'}`}
+              alt={user?.displayName || 'User'}
             />
             <AvatarFallback>
               <User className="h-4 w-4" />

@@ -1,24 +1,32 @@
-// GreenLane Background Service Worker
+﻿// GreenLane Background Service Worker
 // Handles extension lifecycle, user auth, and API communication
 
-const API_URL = process.env.PLASMO_PUBLIC_API_URL || "http://localhost:3001"
+const API_URL = process.env.PLASMO_PUBLIC_API_URL || "http://localhost:8080"
 
-// In-memory cache for product analyses (persists during browser session)
 interface CachedAnalysis {
   analysis: object
   timestamp: number
 }
+
 const analysisCache = new Map<string, CachedAnalysis>()
 const CACHE_TTL = 30 * 60 * 1000 // 30 minutes
 
 console.log("GreenLane: Background service worker started")
 
-// Generate unique extension ID on first install
 function generateExtensionId(): string {
   return `ext_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 }
 
-// Get or create extension ID
+function extractAsin(url: string | undefined | null): string | null {
+  if (!url) return null
+  const patterns = [/\/dp\/([A-Z0-9]{10})/i, /\/gp\/product\/([A-Z0-9]{10})/i, /[?&]asin=([A-Z0-9]{10})/i]
+  for (const pattern of patterns) {
+    const match = url.match(pattern)
+    if (match?.[1]) return match[1].toUpperCase()
+  }
+  return null
+}
+
 async function getExtensionId(): Promise<string> {
   return new Promise((resolve) => {
     chrome.storage.local.get(["extensionId"], (result) => {
@@ -33,7 +41,6 @@ async function getExtensionId(): Promise<string> {
   })
 }
 
-// Get current user data
 async function getUserData(): Promise<{ userId: string | null; email: string | null; displayName: string | null }> {
   return new Promise((resolve) => {
     chrome.storage.local.get(["userId", "userEmail", "userDisplayName"], (result) => {
@@ -46,87 +53,110 @@ async function getUserData(): Promise<{ userId: string | null; email: string | n
   })
 }
 
-// Register or login user with backend
-async function registerUser(email: string, displayName: string): Promise<{ success: boolean; userId?: string; error?: string }> {
+async function ensureBackendSession(): Promise<void> {
+  const userData = await getUserData()
+  if (!userData.email) return
+
   try {
-    const extensionId = await getExtensionId()
-    const response = await fetch(`${API_URL}/api/users`, {
+    await fetch(`${API_URL}/api/users/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, displayName, extensionId })
+      body: JSON.stringify({ email: userData.email })
+    })
+  } catch {
+    // Best effort only
+  }
+}
+
+async function registerUser(email: string, displayName: string): Promise<{ success: boolean; userId?: string; error?: string }> {
+  try {
+    await getExtensionId()
+
+    const registerRes = await fetch(`${API_URL}/api/users/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, username: displayName })
     })
 
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error || "Registration failed")
+    if (!registerRes.ok && registerRes.status !== 409) {
+      const errorData = await registerRes.json().catch(() => ({}))
+      throw new Error(errorData.message || errorData.reason || "Registration failed")
     }
 
-    const data = await response.json()
-    
-    // Store user info locally - API returns { success, data: { id, email, displayName } }
-    const user = data.data
-    await chrome.storage.local.set({
-      userId: user.id,
-      userEmail: user.email,
-      userDisplayName: user.displayName
+    const loginRes = await fetch(`${API_URL}/api/users/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email })
     })
 
-    return { success: true, userId: user.id }
+    if (!loginRes.ok) {
+      const errorData = await loginRes.json().catch(() => ({}))
+      throw new Error(errorData.message || errorData.reason || "Login failed")
+    }
+
+    const user = await loginRes.json()
+    await chrome.storage.local.set({
+      userId: String(user.id),
+      userEmail: user.email,
+      userDisplayName: user.username || displayName
+    })
+
+    return { success: true, userId: String(user.id) }
   } catch (error) {
     console.error("GreenLane: Registration error:", error)
     return { success: false, error: error instanceof Error ? error.message : "Unknown error" }
   }
 }
 
-// Record a scan to the backend
-async function recordScan(productData: object, analysis: object): Promise<{ success: boolean; scan?: object; error?: string }> {
+async function recordScan(productData: any, _analysis: object): Promise<{ success: boolean; scan?: object; error?: string }> {
   try {
     const userData = await getUserData()
     if (!userData.userId) {
       return { success: false, error: "Not logged in" }
     }
 
-    const response = await fetch(`${API_URL}/api/scans`, {
+    const asin = extractAsin(productData?.url)
+    if (!asin) {
+      return { success: false, error: "Could not extract ASIN from product URL" }
+    }
+
+    await ensureBackendSession()
+
+    const response = await fetch(`${API_URL}/api/products/buy`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userId: userData.userId,
-        productData,
-        analysis
-      })
+      body: JSON.stringify([asin])
     })
 
-    if (!response.ok) throw new Error("Failed to record scan")
-    
-    const data = await response.json()
-    return { success: true, scan: data.scan }
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.message || errorData.reason || "Failed to record scan")
+    }
+
+    return { success: true, scan: { asin, userId: userData.userId } }
   } catch (error) {
     console.error("GreenLane: Record scan error:", error)
     return { success: false, error: error instanceof Error ? error.message : "Unknown error" }
   }
 }
 
-// Listen for extension installation
 chrome.runtime.onInstalled.addListener(async (details) => {
   console.log("GreenLane: Extension installed/updated", details.reason)
-  
+
   const extensionId = await getExtensionId()
   console.log("GreenLane: Extension ID:", extensionId)
-  
+
   if (details.reason === "install") {
     console.log("GreenLane: First time install - welcome!")
-    // Open welcome/settings page on first install
-    chrome.tabs.create({ url: "http://localhost:3002?setup=extension" })
+    chrome.tabs.create({ url: "http://localhost:3000?setup=extension" })
   } else if (details.reason === "update") {
     console.log("GreenLane: Updated to version", chrome.runtime.getManifest().version)
   }
 })
 
-// Listen for messages from content scripts or popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log("GreenLane Background: Received message:", message.type)
-  
-  // Handle different message types
+
   switch (message.type) {
     case "GET_USER_DATA":
       getUserData().then(sendResponse)
@@ -141,6 +171,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true
 
     case "LOGOUT":
+      fetch(`${API_URL}/api/users/logout`, { method: "POST" }).catch(() => undefined)
       chrome.storage.local.remove(["userId", "userEmail", "userDisplayName"], () => {
         sendResponse({ success: true })
       })
@@ -150,8 +181,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       recordScan(message.productData, message.analysis).then(sendResponse)
       return true
 
-    case "GET_CACHED_ANALYSIS":
-      // Check cache for existing analysis
+    case "GET_CACHED_ANALYSIS": {
       const cacheKey = message.productUrl
       const cached = analysisCache.get(cacheKey)
       if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
@@ -162,9 +192,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ cached: false })
       }
       return true
+    }
 
     case "SET_CACHED_ANALYSIS":
-      // Store analysis in cache
       analysisCache.set(message.productUrl, {
         analysis: message.analysis,
         timestamp: Date.now()
@@ -176,13 +206,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "LOG_EVENT":
       console.log("GreenLane Event:", message.event, message.data)
       sendResponse({ success: true })
-      break
-      
+      return true
+
     default:
       console.log("GreenLane Background: Unknown message type:", message.type)
+      return true
   }
-  
-  return true
 })
 
 export {}

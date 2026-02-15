@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+﻿import { useEffect, useState } from "react"
 
 // Types
 interface ProductData {
@@ -60,6 +60,41 @@ function getScoreLabel(score: number): string {
   if (score < 40) return "Poor"
   if (score < 70) return "Fair"
   return "Good"
+}
+
+const CLOUD_API_URL = process.env.PLASMO_PUBLIC_API_URL || "http://localhost:8080"
+
+function extractAsin(url: string | undefined | null): string | null {
+  if (!url) return null
+  const patterns = [/\/dp\/([A-Z0-9]{10})/i, /\/gp\/product\/([A-Z0-9]{10})/i, /[?&]asin=([A-Z0-9]{10})/i]
+  for (const pattern of patterns) {
+    const match = url.match(pattern)
+    if (match?.[1]) return match[1].toUpperCase()
+  }
+  return null
+}
+
+function scoreFromRatings(ratings: Array<{ score?: number }> | undefined): number {
+  if (!ratings || ratings.length === 0) return 50
+  const scores = ratings.map((r) => r.score || 0)
+  const avg = scores.reduce((a, b) => a + b, 0) / scores.length
+  return Math.max(0, Math.min(100, Math.round(avg)))
+}
+
+function recommendationForScore(score: number): string {
+  if (score >= 75) return "Great sustainable option"
+  if (score >= 50) return "Decent option with room to improve"
+  return "Consider a greener alternative"
+}
+
+function fallbackScoreFromProduct(product: ProductData): number {
+  const text = `${product.productTitle} ${product.brand || ""} ${product.materials || ""}`.toLowerCase()
+  let score = 50
+  const positive = ["organic", "recycled", "biodegradable", "compostable", "bamboo", "stainless", "eco"]
+  const negative = ["plastic", "single-use", "disposable", "polyester", "vinyl"]
+  positive.forEach((word) => { if (text.includes(word)) score += 6 })
+  negative.forEach((word) => { if (text.includes(word)) score -= 6 })
+  return Math.max(0, Math.min(100, score))
 }
 
 // Shared styles
@@ -156,10 +191,10 @@ function LoginView({ onLogin, onBack }: { onLogin: (email: string, name: string)
     <div style={containerStyle}>
       <div style={headerStyle}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 24 }}>🌿</span>
+          <span style={{ fontSize: 24 }}>ðŸŒ¿</span>
           <span style={{ fontSize: 18, fontWeight: 600 }}>GreenLane</span>
         </div>
-        <button onClick={onBack} style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: 20 }}>×</button>
+        <button onClick={onBack} style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: 20 }}>Ã—</button>
       </div>
       <div style={contentStyle}>
         <h3 style={{ margin: "0 0 8px", color: "#1f2937" }}>Welcome to GreenLane!</h3>
@@ -214,10 +249,10 @@ function SettingsView({ user, onLogout, onBack, localLLMEnabled, onToggleLocalLL
     <div style={containerStyle}>
       <div style={headerStyle}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 24 }}>⚙️</span>
+          <span style={{ fontSize: 24 }}>âš™ï¸</span>
           <span style={{ fontSize: 18, fontWeight: 600 }}>Settings</span>
         </div>
-        <button onClick={onBack} style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: 20 }}>×</button>
+        <button onClick={onBack} style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: 20 }}>Ã—</button>
       </div>
       <div style={contentStyle}>
         {user.userId ? (
@@ -261,7 +296,7 @@ function SettingsView({ user, onLogout, onBack, localLLMEnabled, onToggleLocalLL
                     transition: "transform 0.3s ease",
                     transform: localLLMEnabled ? "rotate(0deg)" : "rotate(-15deg)"
                   }}>
-                    {localLLMEnabled ? "🔒" : "🔓"}
+                    {localLLMEnabled ? "ðŸ”’" : "ðŸ”“"}
                   </span>
                   <div>
                     <span style={{ fontWeight: 500, color: localLLMEnabled ? "white" : "#1f2937" }}>Go Private</span>
@@ -270,7 +305,7 @@ function SettingsView({ user, onLogout, onBack, localLLMEnabled, onToggleLocalLL
                       fontSize: 11, 
                       color: localLLMEnabled ? "rgba(255,255,255,0.8)" : "#6b7280" 
                     }}>
-                      {localLLMEnabled ? "🛡️ Data stays on device" : "Use on-device AI"}
+                      {localLLMEnabled ? "ðŸ›¡ï¸ Data stays on device" : "Use on-device AI"}
                     </p>
                   </div>
                 </div>
@@ -325,10 +360,10 @@ function SettingsView({ user, onLogout, onBack, localLLMEnabled, onToggleLocalLL
                 }}>
                   <strong>What's different:</strong>
                   <ul style={{ margin: "4px 0 0", paddingLeft: 16 }}>
-                    <li>✓ Product data analyzed locally by ExecuTorch</li>
-                    <li>✓ No data sent to cloud servers</li>
-                    <li>✓ Scans NOT saved to dashboard</li>
-                    <li>✓ Works offline after initial setup</li>
+                    <li>âœ“ Product data analyzed locally by ExecuTorch</li>
+                    <li>âœ“ No data sent to cloud servers</li>
+                    <li>âœ“ Scans NOT saved to dashboard</li>
+                    <li>âœ“ Works offline after initial setup</li>
                   </ul>
                 </div>
               )}
@@ -342,7 +377,7 @@ function SettingsView({ user, onLogout, onBack, localLLMEnabled, onToggleLocalLL
                   padding: "6px 10px",
                   borderRadius: 6
                 }}>
-                  ⚠️ Local server not running. Start it with: ./greenlane-local
+                  âš ï¸ Local server not running. Start it with: ./greenlane-local
                 </p>
               )}
             </div>
@@ -364,10 +399,10 @@ function SettingsView({ user, onLogout, onBack, localLLMEnabled, onToggleLocalLL
             >
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <span>📊</span>
+                  <span>ðŸ“Š</span>
                   <span style={{ fontWeight: 500 }}>Open Dashboard</span>
                 </div>
-                <span style={{ color: "#9ca3af" }}>→</span>
+                <span style={{ color: "#9ca3af" }}>â†’</span>
               </div>
             </a>
             
@@ -391,11 +426,11 @@ function SettingsView({ user, onLogout, onBack, localLLMEnabled, onToggleLocalLL
         
         <div style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid #e5e7eb" }}>
           <p style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", margin: 0 }}>
-            GreenLane v1.0.0 • Made with 💚 for SFHacks 2026
+            GreenLane v1.0.0 â€¢ Made with ðŸ’š for SFHacks 2026
           </p>
           {localLLMEnabled && (
             <p style={{ fontSize: 10, color: "#7c3aed", textAlign: "center", margin: "4px 0 0" }}>
-              🔒 Meta ExecuTorch • On-Device AI
+              ðŸ”’ Meta ExecuTorch â€¢ On-Device AI
             </p>
           )}
         </div>
@@ -462,7 +497,7 @@ function AnalysisView({
   // Find eco alternatives on Amazon
   const findAlternatives = async () => {
     if (!product) return
-    
+
     setSearchingAlts(true)
     setAltsError(null)
     setAmazonAlts([])
@@ -470,36 +505,44 @@ function AnalysisView({
     setNoAltsReason(null)
 
     try {
-      const response = await fetch("http://localhost:3001/api/products/alternatives", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productName: product.productTitle,
-          brand: product.brand
-        })
-      })
-
-      const data = await response.json()
-      
-      // Check for API error (rate limit, network issue, etc.)
-      if (!response.ok || data.isError) {
-        setAltsError(data.message || "AI service temporarily unavailable. Please wait and try again.")
+      const asin = extractAsin(product.url)
+      if (!asin) {
+        setNoAlternatives(true)
+        setNoAltsReason("Could not detect ASIN on this page.")
         return
       }
-      
-      if (data.success && data.data) {
-        if (data.data.noAlternatives) {
-          // Product genuinely has no sustainable alternatives (e.g., GPU, medical device)
-          setNoAlternatives(true)
-          setNoAltsReason(data.data.noAlternativesReason || "This product type doesn't have sustainable alternatives.")
-        } else if (data.data.alternatives && data.data.alternatives.length > 0) {
-          setAmazonAlts(data.data.alternatives)
-        } else {
-          setAltsError("No alternatives found. Try again in a moment.")
-        }
-      } else {
-        setAltsError(data.message || "No alternatives found")
+
+      const response = await fetch(`${CLOUD_API_URL}/api/products/${asin}/alternatives`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
+      })
+
+      const data = await response.json().catch(() => [])
+      if (!response.ok) {
+        setAltsError(data?.message || data?.reason || "No alternatives found")
+        return
       }
+
+      if (!Array.isArray(data) || data.length === 0) {
+        setNoAlternatives(true)
+        setNoAltsReason("No sustainable alternatives found yet for this product.")
+        return
+      }
+
+      const mapped = data.slice(0, 6).map((item: any) => {
+        const ecoScore = scoreFromRatings(item?.summary?.ratings)
+        return {
+          id: item.asin,
+          name: item.name,
+          searchQuery: item.name,
+          url: `https://www.amazon.com/dp/${item.asin}`,
+          ecoScore,
+          reason: item?.summary?.summary || "Alternative with better sustainability profile.",
+          category: "alternative"
+        }
+      })
+
+      setAmazonAlts(mapped)
     } catch (err) {
       console.error("Error finding alternatives:", err)
       setAltsError("Network error. Please check connection and try again.")
@@ -514,13 +557,13 @@ function AnalysisView({
       <div style={containerStyle}>
         <div style={headerStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 24 }}>🌿</span>
+            <span style={{ fontSize: 24 }}>ðŸŒ¿</span>
             <span style={{ fontSize: 18, fontWeight: 600 }}>GreenLane</span>
           </div>
           <SettingsButton onClick={onSettings} />
         </div>
         <div style={{ ...contentStyle, textAlign: "center", paddingTop: 30 }}>
-          <span style={{ fontSize: 48, display: "block", marginBottom: 16 }}>🔐</span>
+          <span style={{ fontSize: 48, display: "block", marginBottom: 16 }}>ðŸ”</span>
           <h3 style={{ margin: "0 0 8px", color: "#374151" }}>Sign In Required</h3>
           <p style={{ color: "#6b7280", fontSize: 14, margin: "0 0 20px" }}>
             Sign in to analyze products and track your sustainability progress.
@@ -544,7 +587,7 @@ function AnalysisView({
             : "linear-gradient(135deg, #059669 0%, #0891b2 100%)"
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 24 }}>{localLLMEnabled ? "🔒" : "🌿"}</span>
+            <span style={{ fontSize: 24 }}>{localLLMEnabled ? "ðŸ”’" : "ðŸŒ¿"}</span>
             <span style={{ fontSize: 18, fontWeight: 600 }}>GreenLane</span>
           </div>
           <SettingsButton onClick={onSettings} />
@@ -560,8 +603,8 @@ function AnalysisView({
             justifyContent: "center",
             gap: 6
           }}>
-            <span>🛡️</span>
-            <span><strong>Private Mode</strong> — Data stays on your device</span>
+            <span>ðŸ›¡ï¸</span>
+            <span><strong>Private Mode</strong> â€” Data stays on your device</span>
           </div>
         )}
         <div style={{ ...contentStyle, textAlign: "center", paddingTop: localLLMEnabled ? 30 : 40 }}>
@@ -579,7 +622,7 @@ function AnalysisView({
           </p>
           {localLLMEnabled && (
             <p style={{ color: "#9ca3af", fontSize: 11, marginTop: 8 }}>
-              Powered by on-device AI • No network required
+              Powered by on-device AI â€¢ No network required
             </p>
           )}
           <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
@@ -594,19 +637,19 @@ function AnalysisView({
       <div style={containerStyle}>
         <div style={headerStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 24 }}>🌿</span>
+            <span style={{ fontSize: 24 }}>ðŸŒ¿</span>
             <span style={{ fontSize: 18, fontWeight: 600 }}>GreenLane</span>
           </div>
           <SettingsButton onClick={onSettings} />
         </div>
         <div style={{ ...contentStyle, textAlign: "center", paddingTop: 30 }}>
-          <span style={{ fontSize: 48, display: "block", marginBottom: 16 }}>🛒</span>
+          <span style={{ fontSize: 48, display: "block", marginBottom: 16 }}>ðŸ›’</span>
           <h3 style={{ margin: "0 0 8px", color: "#374151" }}>No Product Detected</h3>
           <p style={{ color: "#6b7280", fontSize: 14, margin: 0 }}>
             Visit an Amazon product page to analyze its sustainability.
           </p>
           <p style={{ color: "#9ca3af", fontSize: 12, marginTop: 12 }}>
-            {localLLMEnabled ? "🔒 Private Mode Active" : user.email ? `Signed in as ${user.email}` : ""}
+            {localLLMEnabled ? "ðŸ”’ Private Mode Active" : user.email ? `Signed in as ${user.email}` : ""}
           </p>
         </div>
       </div>
@@ -619,13 +662,13 @@ function AnalysisView({
       <div style={containerStyle}>
         <div style={headerStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 24 }}>🌿</span>
+            <span style={{ fontSize: 24 }}>ðŸŒ¿</span>
             <span style={{ fontSize: 18, fontWeight: 600 }}>GreenLane</span>
           </div>
           <SettingsButton onClick={onSettings} />
         </div>
         <div style={{ ...contentStyle, textAlign: "center", paddingTop: 30 }}>
-          <span style={{ fontSize: 48, display: "block", marginBottom: 16 }}>⚠️</span>
+          <span style={{ fontSize: 48, display: "block", marginBottom: 16 }}>âš ï¸</span>
           <h3 style={{ margin: "0 0 8px", color: "#374151" }}>Analysis Error</h3>
           <p style={{ color: "#6b7280", fontSize: 14, margin: "0 0 16px" }}>{error}</p>
           <button onClick={onRetry} style={buttonStyle}>Retry</button>
@@ -640,7 +683,7 @@ function AnalysisView({
       <div style={containerStyle}>
         <div style={headerStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 24 }}>🌿</span>
+            <span style={{ fontSize: 24 }}>ðŸŒ¿</span>
             <span style={{ fontSize: 18, fontWeight: 600 }}>GreenLane</span>
           </div>
           <SettingsButton onClick={onSettings} />
@@ -678,7 +721,7 @@ function AnalysisView({
           : "linear-gradient(135deg, #059669 0%, #0891b2 100%)"
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 24 }}>{isPrivate ? "🔒" : "🌿"}</span>
+          <span style={{ fontSize: 24 }}>{isPrivate ? "ðŸ”’" : "ðŸŒ¿"}</span>
           <span style={{ fontSize: 18, fontWeight: 600 }}>GreenLane</span>
         </div>
         <SettingsButton onClick={onSettings} />
@@ -696,8 +739,8 @@ function AnalysisView({
           justifyContent: "center",
           gap: 6
         }}>
-          <span>🛡️</span>
-          <span><strong>Private Mode</strong> — Your data never left this device</span>
+          <span>ðŸ›¡ï¸</span>
+          <span><strong>Private Mode</strong> â€” Your data never left this device</span>
         </div>
       )}
       
@@ -734,7 +777,7 @@ function AnalysisView({
               {product.productTitle}
             </h3>
             <p style={{ margin: "4px 0 0", fontSize: 12, color: "#6b7280" }}>
-              {product.brand} • {product.price}
+              {product.brand} â€¢ {product.price}
             </p>
           </div>
         </div>
@@ -770,7 +813,7 @@ function AnalysisView({
                     padding: "4px 10px",
                     borderRadius: 12
                   }}>
-                    🔒 Private Analysis
+                    ðŸ”’ Private Analysis
                   </div>
                   <span style={{ fontSize: 9, color: "#7c3aed", fontWeight: 500 }}>
                     Powered by Meta ExecuTorch
@@ -818,12 +861,12 @@ function AnalysisView({
               )}
               {!isPrivate && user.userId && scanStatus === 'saved' && (
                 <p style={{ fontSize: 12, color: "#059669", marginTop: 8 }}>
-                  ✓ Saved to your dashboard
+                  âœ“ Saved to your dashboard
                 </p>
               )}
               {!isPrivate && user.userId && scanStatus === 'error' && (
                 <p style={{ fontSize: 12, color: "#ef4444", marginTop: 8 }}>
-                  ✗ Failed to save scan
+                  âœ— Failed to save scan
                 </p>
               )}
               
@@ -837,7 +880,7 @@ function AnalysisView({
                   fontSize: 10,
                   color: "#6d28d9"
                 }}>
-                  <strong>🛡️ Privacy Guaranteed</strong><br />
+                  <strong>ðŸ›¡ï¸ Privacy Guaranteed</strong><br />
                   This analysis ran entirely on your device. No product data was sent to any server.
                 </div>
               )}
@@ -854,7 +897,7 @@ function AnalysisView({
               {analysis.positives && analysis.positives.length > 0 && (
                 <div style={{ marginBottom: 12 }}>
                   <h4 style={{ margin: "0 0 8px", fontSize: 13, color: "#059669", display: "flex", alignItems: "center", gap: 6 }}>
-                    ✅ Positives
+                    âœ… Positives
                   </h4>
                   <ul style={{ margin: 0, padding: "0 0 0 20px", fontSize: 13, color: "#4b5563" }}>
                     {analysis.positives.slice(0, 3).map((item, i) => (
@@ -866,7 +909,7 @@ function AnalysisView({
               {analysis.negatives && analysis.negatives.length > 0 && (
                 <div>
                   <h4 style={{ margin: "0 0 8px", fontSize: 13, color: "#ef4444", display: "flex", alignItems: "center", gap: 6 }}>
-                    ⚠️ Concerns
+                    âš ï¸ Concerns
                   </h4>
                   <ul style={{ margin: 0, padding: "0 0 0 20px", fontSize: 13, color: "#4b5563" }}>
                     {analysis.negatives.slice(0, 3).map((item, i) => (
@@ -887,7 +930,7 @@ function AnalysisView({
                 border: "1px solid #fcd34d"
               }}>
                 <p style={{ margin: 0, fontSize: 13, color: "#92400e" }}>
-                  💡 {analysis.recommendation}
+                  ðŸ’¡ {analysis.recommendation}
                 </p>
               </div>
             )}
@@ -901,7 +944,7 @@ function AnalysisView({
                 border: "1px solid #a7f3d0"
               }}>
                 <h4 style={{ margin: "0 0 12px", fontSize: 14, color: "#065f46" }}>
-                  🌱 Greener Alternative
+                  ðŸŒ± Greener Alternative
                 </h4>
                 {analysis.alternatives.slice(0, 2).map((alt, i) => (
                   <div key={alt.id} style={{
@@ -917,10 +960,10 @@ function AnalysisView({
                         {alt.name}
                       </p>
                       <p style={{ margin: "2px 0", fontSize: 11, color: "#059669", fontWeight: 500 }}>
-                        {alt.brand} • {alt.price}
+                        {alt.brand} â€¢ {alt.price}
                       </p>
                       <p style={{ margin: "4px 0 0", fontSize: 10, color: "#6b7280" }}>
-                        {alt.certifications.slice(0, 2).join(" • ")}
+                        {alt.certifications.slice(0, 2).join(" â€¢ ")}
                       </p>
                     </div>
                     <a
@@ -954,7 +997,7 @@ function AnalysisView({
                 border: "1px solid #fcd34d"
               }}>
                 <h4 style={{ margin: "0 0 12px", fontSize: 14, color: "#92400e" }}>
-                  💡 Sustainability Tips
+                  ðŸ’¡ Sustainability Tips
                 </h4>
                 <p style={{ margin: "0 0 12px", fontSize: 11, color: "#78350f" }}>
                   No direct eco alternatives available. Here's how to be more sustainable:
@@ -1019,7 +1062,7 @@ function AnalysisView({
                   </>
                 ) : (
                   <>
-                    🔍 Find Better Sustainable Products
+                    ðŸ” Find Better Sustainable Products
                   </>
                 )}
               </button>
@@ -1036,7 +1079,7 @@ function AnalysisView({
                 textAlign: "center"
               }}>
                 <p style={{ margin: 0, fontSize: 12, color: "#6d28d9", fontWeight: 500 }}>
-                  🔒 Private Mode Active
+                  ðŸ”’ Private Mode Active
                 </p>
                 <p style={{ margin: "4px 0 0", fontSize: 11, color: "#7c3aed" }}>
                   Alternative suggestions disabled to keep your data private.
@@ -1055,7 +1098,7 @@ function AnalysisView({
                 marginTop: 16
               }}>
                 <h4 style={{ margin: "0 0 12px", fontSize: 14, color: "#065f46" }}>
-                  🌱 Better Sustainable Alternatives
+                  ðŸŒ± Better Sustainable Alternatives
                 </h4>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {amazonAlts.map((alt) => (
@@ -1115,7 +1158,7 @@ function AnalysisView({
                         marginLeft: 8,
                         whiteSpace: "nowrap"
                       }}>
-                        {alt.ecoScore}% →
+                        {alt.ecoScore}% â†’
                       </span>
                     </a>
                   ))}
@@ -1133,7 +1176,7 @@ function AnalysisView({
                 marginTop: 16,
                 textAlign: "center"
               }}>
-                <span style={{ fontSize: 32, display: "block", marginBottom: 8 }}>🔧</span>
+                <span style={{ fontSize: 32, display: "block", marginBottom: 8 }}>ðŸ”§</span>
                 <h4 style={{ margin: "0 0 8px", fontSize: 14, color: "#374151" }}>
                   No Sustainable Alternatives
                 </h4>
@@ -1445,18 +1488,42 @@ function IndexPopup() {
                   localAnalysis: true
                 }
               } else {
-                // Use cloud API
-                const apiUrl = process.env.PLASMO_PUBLIC_API_URL || "http://localhost:3001"
-                const res = await fetch(`${apiUrl}/api/analyze-product`, {
+                                // Use Java backend API
+                const asin = extractAsin(productData.url)
+                if (!asin) {
+                  throw new Error("Could not extract ASIN from product URL")
+                }
+
+                const payload = {
+                  asin,
+                  name: (productData.productTitle || "Amazon Product").trim().slice(0, 31),
+                  description: `${productData.brand || "Unknown brand"}. ${productData.materials || "No material information provided."}`.slice(0, 300)
+                }
+
+                const res = await fetch(`${CLOUD_API_URL}/api/products/summary`, {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(productData)
+                  body: JSON.stringify(payload)
                 })
-                
-                if (!res.ok) throw new Error("API error")
-                
-                const data = await res.json()
-                analysisData = data.analysis
+
+                if (!res.ok) {
+                  throw new Error("API error")
+                }
+
+                const summaryData = await res.json()
+                const ratings = summaryData?.ratings || []
+                const mappedScore = ratings.length > 0 ? scoreFromRatings(ratings) : fallbackScoreFromProduct(productData)
+                const reasons = ratings.map((r: any) => r.explanation).filter(Boolean)
+
+                analysisData = {
+                  greenScore: mappedScore,
+                  reasons,
+                  positives: ratings.filter((r: any) => (r.score || 0) >= 70).map((r: any) => r.explanation).filter(Boolean),
+                  negatives: ratings.filter((r: any) => (r.score || 0) < 50).map((r: any) => r.explanation).filter(Boolean),
+                  recommendation: recommendationForScore(mappedScore),
+                  alternatives: [],
+                  localAnalysis: false
+                }
               }
               
               // Cache for future requests
@@ -1581,3 +1648,6 @@ function IndexPopup() {
 }
 
 export default IndexPopup
+
+
+
