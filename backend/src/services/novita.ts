@@ -11,12 +11,18 @@ const novita = new OpenAI({
   baseURL: 'https://api.novita.ai/openai'  // Correct Novita endpoint
 });
 
-// DeepSeek V3 is much faster than R1 (no chain-of-thought reasoning overhead)
-const MODEL = process.env.NOVITA_MODEL || 'deepseek/deepseek_v3';
+// Primary and fallback models for rate limit resilience
+const PRIMARY_MODEL = process.env.NOVITA_MODEL || 'deepseek/deepseek_v3';
+const FALLBACK_MODELS = [
+  'meta-llama/llama-3.1-70b-instruct',
+  'qwen/qwen-2.5-72b-instruct',
+  'mistralai/mistral-large-2411'
+];
 
 // Log API key status (not the actual key!)
 console.log(`🔑 Novita API Key configured: ${process.env.NOVITA_API_KEY ? 'Yes (' + process.env.NOVITA_API_KEY.substring(0, 8) + '...)' : 'No'}`);
-console.log(`🤖 Using model: ${MODEL}`);
+console.log(`🤖 Primary model: ${PRIMARY_MODEL}`);
+console.log(`🤖 Fallback models: ${FALLBACK_MODELS.join(', ')}`);
 
 interface ProductData {
   productTitle: string;
@@ -190,10 +196,10 @@ Respond with this exact JSON structure:
 Return ONLY valid JSON, no markdown.`;
 
   try {
-    console.log(`🤖 Calling Novita AI (${MODEL}) with 15-metric analysis...`);
+    console.log(`🤖 Calling Novita AI (${PRIMARY_MODEL}) with 15-metric analysis...`);
     
     const response = await novita.chat.completions.create({
-      model: MODEL,
+      model: PRIMARY_MODEL,
       messages: [
         {
           role: 'system',
@@ -274,7 +280,7 @@ Return ONLY valid JSON, no markdown.`;
 export async function testNovitaConnection(): Promise<boolean> {
   try {
     const response = await novita.chat.completions.create({
-      model: MODEL,
+      model: PRIMARY_MODEL,
       messages: [{ role: 'user', content: 'Say "ok" if you can hear me.' }],
       max_tokens: 10
     });
@@ -370,16 +376,17 @@ Return ONLY valid JSON. No markdown.`;
   // Helper to delay execution
   const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
   
-  // Retry with exponential backoff
-  const maxRetries = 3;
+  // All models to try (primary + fallbacks)
+  const modelsToTry = [PRIMARY_MODEL, ...FALLBACK_MODELS];
   let lastError: Error | null = null;
 
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+  // Try each model until one works
+  for (const model of modelsToTry) {
     try {
-      console.log(`🔍 AI analyzing alternatives for: ${productName} (attempt ${attempt}/${maxRetries})`);
+      console.log(`🔍 AI analyzing alternatives for: ${productName} (using ${model})`);
       
       const response = await novita.chat.completions.create({
-        model: MODEL,
+        model: model,
         messages: [
           {
             role: 'system',
@@ -395,7 +402,7 @@ Return ONLY valid JSON. No markdown.`;
       });
 
       const content = response.choices[0]?.message?.content || '';
-      console.log(`📝 Alternatives response received (${content.length} chars)`);
+      console.log(`📝 Alternatives response received from ${model} (${content.length} chars)`);
 
     // Parse JSON response
     let jsonStr = content.trim();
@@ -446,17 +453,15 @@ Return ONLY valid JSON. No markdown.`;
 
     } catch (error) {
       lastError = error as Error;
-      console.error(`❌ Attempt ${attempt} failed:`, error);
+      console.error(`❌ Model ${model} failed:`, (error as Error).message || error);
       
-      if (attempt < maxRetries) {
-        const waitTime = attempt * 2000; // 2s, 4s, 6s
-        console.log(`⏳ Waiting ${waitTime}ms before retry...`);
-        await delay(waitTime);
-      }
+      // Wait before trying next model
+      console.log(`⏳ Waiting 1s before trying next model...`);
+      await delay(1000);
     }
   }
 
-  // All retries failed
-  console.error('❌ All retry attempts failed for alternatives');
-  throw lastError || new Error('Failed to find alternatives after retries');
+  // All models failed
+  console.error('❌ All models failed for alternatives');
+  throw lastError || new Error('All AI models are currently unavailable');
 }
