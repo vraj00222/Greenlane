@@ -302,138 +302,88 @@ interface AlternativesResult {
   noAlternativesReason?: string;
 }
 
-// Products that typically don't have sustainable alternatives
-const NO_ALTERNATIVE_CATEGORIES = [
-  // Electronics/Tech Hardware
-  'gpu', 'graphics card', 'rtx', 'gtx', 'nvidia', 'amd radeon', 'cpu', 'processor', 'intel', 'ryzen',
-  'motherboard', 'ram', 'ddr4', 'ddr5', 'ssd', 'hard drive', 'power supply', 'psu',
-  // Automotive
-  'motor oil', 'engine oil', 'transmission fluid', 'brake fluid', 'coolant', 'antifreeze',
-  'car battery', 'spark plug', 'brake pad', 'oil filter', 'air filter', 'fuel injector',
-  // Medical/Health
-  'prescription', 'medication', 'insulin', 'medical device', 'hearing aid', 'prosthetic',
-  // Specialized Equipment
-  'welding', 'soldering', 'industrial', 'laboratory', 'scientific equipment',
-  'power tool', 'drill bit', 'saw blade',
-  // Safety Equipment
-  'fire extinguisher', 'smoke detector', 'carbon monoxide detector', 'safety harness',
-  // Unique/Collectible
-  'collector', 'antique', 'vintage', 'rare', 'limited edition',
-];
-
 /**
- * Check if a product likely has no sustainable alternatives
- */
-function hasNoSustainableAlternative(productName: string): { noAlt: boolean; reason: string } {
-  const productLower = productName.toLowerCase();
-  
-  for (const keyword of NO_ALTERNATIVE_CATEGORIES) {
-    if (productLower.includes(keyword)) {
-      // Determine category for the reason
-      if (['gpu', 'graphics card', 'rtx', 'gtx', 'nvidia', 'amd radeon', 'cpu', 'processor', 'intel', 'ryzen', 'motherboard', 'ram', 'ssd', 'power supply', 'psu'].some(k => productLower.includes(k))) {
-        return { noAlt: true, reason: 'Computer hardware components are specialized technology products. Consider energy-efficient models or buying refurbished to reduce environmental impact.' };
-      }
-      if (['motor oil', 'engine oil', 'transmission', 'brake fluid', 'coolant', 'antifreeze', 'car battery', 'spark plug', 'brake pad', 'oil filter'].some(k => productLower.includes(k))) {
-        return { noAlt: true, reason: 'Automotive maintenance products are essential for vehicle safety and performance. Look for products with recycled content or proper disposal programs.' };
-      }
-      if (['prescription', 'medication', 'insulin', 'medical device', 'hearing aid'].some(k => productLower.includes(k))) {
-        return { noAlt: true, reason: 'Medical products and medications are specialized and should be chosen based on health needs, not sustainability alternatives.' };
-      }
-      if (['welding', 'soldering', 'industrial', 'laboratory', 'power tool', 'drill bit', 'saw blade'].some(k => productLower.includes(k))) {
-        return { noAlt: true, reason: 'Industrial and specialized tools require specific materials for safety and performance. Consider quality over quantity for longer lifespan.' };
-      }
-      return { noAlt: true, reason: 'This is a specialized product category where sustainable alternatives may not be available or appropriate.' };
-    }
-  }
-  
-  return { noAlt: false, reason: '' };
-}
-
-/**
- * Use AI to find genuinely sustainable alternatives (not just eco-tags)
- * e.g., plastic bags → canvas bags, paper bags (actual different products)
+ * Use AI to DYNAMICALLY find genuinely sustainable alternatives
+ * AI determines if alternatives exist - no hardcoded product lists
+ * e.g., plastic bags → canvas bags, but GPUs → no alternatives
  */
 export async function findSustainableAlternatives(
   productName: string, 
   brand?: string,
   category?: string
 ): Promise<AlternativesResult> {
-  // First check if this is a product category without sustainable alternatives
-  const noAltCheck = hasNoSustainableAlternative(productName);
-  if (noAltCheck.noAlt) {
-    console.log(`⚠️ No sustainable alternatives for: ${productName}`);
-    return {
-      originalProduct: productName,
-      originalIssues: ['This product category has limited sustainable alternatives'],
-      alternatives: [],
-      noAlternatives: true,
-      noAlternativesReason: noAltCheck.reason
-    };
-  }
-
-  const prompt = `You are a sustainability expert. Find GENUINELY sustainable alternatives for this product.
+  const prompt = `You are a sustainability expert. Analyze this product and determine if GENUINELY sustainable alternatives exist.
 
 Original Product: ${productName}
 Brand: ${brand || 'Unknown'}
 Category: ${category || 'General'}
 
-CRITICAL RULES:
-1. DO NOT just add "eco-friendly" or "sustainable" to the same product type
-2. Suggest DIFFERENT product types that serve the same PURPOSE but are inherently more sustainable
-3. If no sustainable alternatives exist (tech hardware, automotive parts, medical items), return empty alternatives array
-4. Always provide 5-6 alternatives when alternatives exist
+YOUR TASK:
+1. First, determine if this product category CAN have sustainable alternatives
+2. If YES: suggest 5-6 DIFFERENT product types (not just eco-labeled versions of the same thing)
+3. If NO: explain why and return empty alternatives array
 
-Examples of CORRECT suggestions:
-- Plastic bags → Canvas tote bags, Jute bags, Paper bags, Mesh produce bags, Reusable silicone bags
-- Disposable coffee cups → Reusable travel mugs, Glass coffee cups, Stainless steel tumblers, Ceramic mugs
-- Plastic water bottles → Stainless steel bottles, Glass bottles, Filtered water pitcher, Bamboo bottles
-- Fast fashion T-shirt → Second-hand vintage, Organic cotton shirt, Hemp clothing, Recycled polyester
-- Paper towels → Reusable cloth towels, Swedish dishcloths, Bamboo towels, Microfiber cloths
+PRODUCTS THAT TYPICALLY HAVE ALTERNATIVES (suggest different products):
+- Single-use plastics → Reusable alternatives (bags, cups, bottles, straws)
+- Fast fashion → Sustainable clothing brands, second-hand, organic materials
+- Disposable items → Durable reusable versions
+- Chemical cleaners → Natural/biodegradable cleaners
+- Conventional textiles → Organic, recycled, or sustainable fabrics
 
-Products with NO sustainable alternatives (return empty array):
-- Computer components (GPUs, CPUs, RAM, motherboards)
-- Automotive fluids and parts (motor oil, brake pads)
-- Medical devices and medications
-- Industrial/specialized equipment
-- Collectibles and antiques
+PRODUCTS THAT DO NOT HAVE ALTERNATIVES (return hasAlternatives: false):
+- Computer hardware (GPUs, CPUs, RAM, motherboards, SSDs) - no eco alternative exists
+- Automotive parts and fluids (motor oil, brake pads, spark plugs) - safety critical
+- Medical devices and medications - health critical, no substitutes
+- Specialized industrial equipment - specific technical requirements
+- Firearms, ammunition, weapons - regulated products
+- Collectibles, antiques, rare items - unique items
+- Pet food, baby formula - specific nutritional needs
+- Prescription glasses, contacts - medical necessity
+- Safety equipment (fire extinguishers, smoke detectors)
+- Musical instruments, sports equipment - specific performance needs
 
-Respond with this exact JSON structure:
+CRITICAL: Do NOT suggest "eco-friendly version" of tech products or adding sustainability labels.
+For example:
+- WRONG: "Eco-friendly GPU" or "Sustainable motherboard" ❌
+- WRONG: "Green motor oil" or "Eco brake pads" ❌
+- RIGHT: For plastic bags → Canvas bags, Mesh bags, Paper bags ✓
+
+Respond with this exact JSON:
 {
   "originalProduct": "${productName}",
-  "originalIssues": ["<2-3 sustainability problems with the original product>"],
+  "originalIssues": ["<2-3 specific issues OR why no alternatives exist>"],
   "hasAlternatives": <true or false>,
-  "noAlternativesReason": "<only if hasAlternatives is false, explain why>",
+  "noAlternativesReason": "<if hasAlternatives is false: explain why this product type has no sustainable alternative and give eco-tips instead>",
   "alternatives": [
     {
-      "name": "<Descriptive product name - be specific>",
-      "searchQuery": "<Optimized Amazon search query for this exact product>",
-      "reason": "<One sentence: why this is more sustainable>",
-      "ecoScore": <number 65-95>,
-      "category": "<product category>"
+      "name": "<Specific product name>",
+      "searchQuery": "<Amazon search query>",
+      "reason": "<Why more sustainable - one sentence>",
+      "ecoScore": <65-95>,
+      "category": "<category>"
     }
   ]
 }
 
-IMPORTANT: Provide 5-6 DIVERSE alternatives with DIFFERENT materials/approaches.
-Return ONLY valid JSON.`;
+Return ONLY valid JSON. No markdown.`;
 
   try {
-    console.log(`🔍 Finding sustainable alternatives for: ${productName}`);
+    console.log(`🔍 AI analyzing alternatives for: ${productName}`);
     
     const response = await novita.chat.completions.create({
       model: MODEL,
       messages: [
         {
           role: 'system',
-          content: 'You are a sustainability expert. Suggest genuinely different sustainable products, not the same product with eco labels. For specialized products like computer hardware, automotive parts, or medical items, acknowledge that no sustainable alternatives exist. Return valid JSON only.'
+          content: 'You are a sustainability expert. Your job is to determine if a product has genuinely different sustainable alternatives. For tech hardware, automotive parts, medical items, and other specialized products - acknowledge that no sustainable alternatives exist. For everyday consumer goods with disposable/wasteful versions - suggest reusable or sustainable alternatives. Return valid JSON only.'
         },
         {
           role: 'user',
           content: prompt
         }
       ],
-      temperature: 0.5,
-      max_tokens: 1000  // More tokens for 5-6 alternatives
+      temperature: 0.4,  // Slightly lower for more consistent decisions
+      max_tokens: 1200
     });
 
     const content = response.choices[0]?.message?.content || '';
