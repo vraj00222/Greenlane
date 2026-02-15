@@ -25,6 +25,14 @@ interface ProductData {
   materials?: string;
 }
 
+// Detailed scoring breakdown for transparency
+interface MetricScore {
+  name: string;
+  score: number;
+  maxScore: number;
+  reason: string;
+}
+
 interface AnalysisResult {
   greenScore: number;
   rawScore: number;
@@ -32,13 +40,112 @@ interface AnalysisResult {
   positives: string[];
   negatives: string[];
   recommendation: string;
+  metrics?: MetricScore[];
 }
 
 /**
- * Analyze product sustainability using Novita AI (DeepSeek R1)
+ * Sustainability Metrics System (15 metrics, 100 points total)
+ * Each metric evaluates a specific aspect of product sustainability
+ */
+const SUSTAINABILITY_METRICS = `
+SCORING METRICS (evaluate each, total = 100 points max):
+
+1. RECYCLED CONTENT (0-10 pts)
+   - 10: Made primarily from recycled materials (>75%)
+   - 7: Contains significant recycled content (50-75%)
+   - 4: Some recycled materials (25-50%)
+   - 0: No recycled content or unknown
+
+2. NATURAL/ORGANIC MATERIALS (0-8 pts)
+   - 8: Certified organic/natural materials (organic cotton, bamboo, hemp)
+   - 5: Some natural materials, not certified
+   - 2: Mix of natural and synthetic
+   - 0: Primarily synthetic/plastic-based
+
+3. PRODUCT DURABILITY (0-12 pts) - KEY METRIC
+   - 12: Built to last 10+ years, excellent construction
+   - 8: Above average lifespan (5-10 years)
+   - 4: Average durability for category
+   - 0: Poor quality, likely to break/wear quickly
+
+4. REPAIRABILITY (0-6 pts)
+   - 6: Easily repairable, parts available
+   - 4: Can be repaired with some effort
+   - 2: Difficult to repair
+   - 0: Designed to be replaced, not repaired
+
+5. END-OF-LIFE DISPOSAL (0-8 pts)
+   - 8: Fully recyclable or compostable
+   - 5: Partially recyclable (some components)
+   - 2: Difficult to recycle but possible
+   - 0: Ends up in landfill, non-recyclable
+
+6. ENERGY EFFICIENCY (0-8 pts)
+   - 8: Very energy efficient or requires no energy
+   - 5: Above average efficiency
+   - 2: Standard energy usage
+   - 0: High energy consumer
+
+7. CERTIFICATIONS (0-10 pts)
+   - 10: Multiple certifications (B-Corp, Fair Trade, GOTS, FSC, Energy Star)
+   - 7: One major certification
+   - 3: Minor eco-label or brand claim
+   - 0: No certifications
+
+8. PACKAGING (-5 to +5 pts)
+   - +5: Minimal, plastic-free, recyclable packaging
+   - +2: Reasonable packaging, some recyclable
+   - 0: Standard packaging
+   - -3: Excessive packaging
+   - -5: Excessive single-use plastic packaging
+
+9. MANUFACTURING IMPACT (0-8 pts)
+   - 8: Clean production, renewable energy, low emissions
+   - 5: Some sustainable practices
+   - 2: Standard manufacturing
+   - 0: Known polluting processes
+
+10. WATER FOOTPRINT (0-5 pts)
+    - 5: Low water usage in production
+    - 3: Moderate water usage
+    - 0: High water consumption (textiles, agriculture)
+
+11. ETHICAL SOURCING (0-8 pts)
+    - 8: Verified ethical supply chain, fair wages
+    - 5: Some ethical commitments
+    - 2: Unknown supply chain
+    - 0: Known labor issues
+
+12. BIODEGRADABILITY (0-7 pts)
+    - 7: Fully biodegradable materials
+    - 4: Partially biodegradable
+    - 0: Non-biodegradable (plastics, synthetics)
+
+13. TOXICITY (-10 to 0 pts) - PENALTY METRIC
+    - 0: Non-toxic, safe materials
+    - -3: Minor concerns (some chemicals)
+    - -7: Contains concerning chemicals
+    - -10: Known toxic materials (lead, BPA, formaldehyde)
+
+14. BRAND SUSTAINABILITY RECORD (0-8 pts)
+    - 8: Industry leader in sustainability
+    - 5: Active sustainability initiatives
+    - 2: Some efforts, room for improvement
+    - 0: No known sustainability efforts or greenwashing
+
+15. CARBON FOOTPRINT (-5 to +5 pts)
+    - +5: Carbon neutral or negative
+    - +2: Low carbon footprint
+    - 0: Average carbon footprint
+    - -3: Above average emissions
+    - -5: High carbon footprint (air shipping, etc.)
+`;
+
+/**
+ * Analyze product sustainability using Novita AI (DeepSeek V3)
  */
 export async function analyzeProductWithAI(product: ProductData): Promise<AnalysisResult> {
-  const prompt = `You are a sustainability analyst. Analyze this product and provide a sustainability score.
+  const prompt = `You are a sustainability analyst. Evaluate this product using the detailed metrics below.
 
 Product Information:
 - Title: ${product.productTitle}
@@ -46,29 +153,44 @@ Product Information:
 - Price: ${product.price}
 - Materials: ${product.materials || 'Not specified'}
 
-Provide your analysis as JSON with this exact structure:
+${SUSTAINABILITY_METRICS}
+
+INSTRUCTIONS:
+1. Score each of the 15 metrics based on available information
+2. Sum all scores for the total greenScore (can range from -20 to 100)
+3. Normalize to 0-100 range
+4. Be realistic - most products score 30-60
+
+Respond with this exact JSON structure:
 {
-  "rawScore": <number 0-100>,
-  "reasons": [<3-4 short bullet points explaining the score>],
-  "positives": [<2-3 positive sustainability aspects>],
-  "negatives": [<2-3 negative sustainability aspects>],
-  "recommendation": "<one sentence advice>"
+  "metrics": [
+    {"name": "Recycled Content", "score": <0-10>, "reason": "<brief explanation>"},
+    {"name": "Natural Materials", "score": <0-8>, "reason": "<brief explanation>"},
+    {"name": "Durability", "score": <0-12>, "reason": "<brief explanation>"},
+    {"name": "Repairability", "score": <0-6>, "reason": "<brief explanation>"},
+    {"name": "End-of-Life", "score": <0-8>, "reason": "<brief explanation>"},
+    {"name": "Energy Efficiency", "score": <0-8>, "reason": "<brief explanation>"},
+    {"name": "Certifications", "score": <0-10>, "reason": "<brief explanation>"},
+    {"name": "Packaging", "score": <-5 to 5>, "reason": "<brief explanation>"},
+    {"name": "Manufacturing", "score": <0-8>, "reason": "<brief explanation>"},
+    {"name": "Water Footprint", "score": <0-5>, "reason": "<brief explanation>"},
+    {"name": "Ethical Sourcing", "score": <0-8>, "reason": "<brief explanation>"},
+    {"name": "Biodegradability", "score": <0-7>, "reason": "<brief explanation>"},
+    {"name": "Toxicity", "score": <-10 to 0>, "reason": "<brief explanation>"},
+    {"name": "Brand Record", "score": <0-8>, "reason": "<brief explanation>"},
+    {"name": "Carbon Footprint", "score": <-5 to 5>, "reason": "<brief explanation>"}
+  ],
+  "rawScore": <sum of all metric scores>,
+  "greenScore": <normalized 0-100>,
+  "positives": ["<top 3 sustainability strengths>"],
+  "negatives": ["<top 3 sustainability concerns>"],
+  "recommendation": "<one actionable sentence>"
 }
 
-Scoring Guidelines:
-- Base score: 50 (average product)
-- Recycled/organic materials: +15-20
-- Fast fashion/synthetic materials: -10-15
-- Brand with known sustainability initiatives: +10
-- Certifications (B-Corp, Fair Trade, GOTS): +15-20
-- Excessive packaging concerns: -5-10
-- Durability/longevity indicators: +5-10
-
-Be realistic and balanced. Most products score 35-65.
-Return ONLY valid JSON, no markdown formatting or explanation.`;
+Return ONLY valid JSON, no markdown.`;
 
   try {
-    console.log(`🤖 Calling Novita AI (${MODEL})...`);
+    console.log(`🤖 Calling Novita AI (${MODEL}) with 15-metric analysis...`);
     
     const response = await novita.chat.completions.create({
       model: MODEL,
@@ -82,15 +204,14 @@ Return ONLY valid JSON, no markdown formatting or explanation.`;
           content: prompt
         }
       ],
-      temperature: 0.3, // Lower temperature for more consistent scoring
-      max_tokens: 500   // V3 doesn't need extra tokens for thinking
+      temperature: 0.3,
+      max_tokens: 1200  // More tokens for detailed metrics
     });
 
     const content = response.choices[0]?.message?.content || '';
     console.log(`📝 AI Response received (${content.length} chars)`);
 
     // Parse the JSON response
-    // DeepSeek R1 returns <think>...</think> followed by the actual response
     let jsonStr = content.trim();
     
     // Remove DeepSeek thinking tags
@@ -98,7 +219,7 @@ Return ONLY valid JSON, no markdown formatting or explanation.`;
       jsonStr = jsonStr.split('</think>').pop() || jsonStr;
     }
     
-    // Handle potential markdown code blocks
+    // Handle markdown code blocks
     jsonStr = jsonStr.trim();
     if (jsonStr.startsWith('```json')) {
       jsonStr = jsonStr.slice(7);
@@ -121,14 +242,24 @@ Return ONLY valid JSON, no markdown formatting or explanation.`;
 
     const analysis = JSON.parse(jsonStr);
 
-    // Validate and normalize the response
+    // Calculate score from metrics if available
+    let calculatedScore = analysis.rawScore || 50;
+    if (analysis.metrics && Array.isArray(analysis.metrics)) {
+      calculatedScore = analysis.metrics.reduce((sum: number, m: MetricScore) => sum + (m.score || 0), 0);
+    }
+
+    // Normalize score to 0-100 (raw can be -20 to 100, so shift and scale)
+    const normalizedScore = Math.round(Math.max(0, Math.min(100, (calculatedScore + 20) * (100 / 120))));
+
     return {
-      greenScore: Math.max(0, Math.min(100, analysis.rawScore || 50)),
-      rawScore: analysis.rawScore || 50,
-      reasons: Array.isArray(analysis.reasons) ? analysis.reasons.slice(0, 4) : ['Analysis completed'],
+      greenScore: normalizedScore,
+      rawScore: calculatedScore,
+      reasons: Array.isArray(analysis.reasons) ? analysis.reasons.slice(0, 4) : 
+               analysis.metrics?.slice(0, 4).map((m: MetricScore) => `${m.name}: ${m.reason}`) || ['Analysis completed'],
       positives: Array.isArray(analysis.positives) ? analysis.positives.slice(0, 3) : ['Product analyzed'],
       negatives: Array.isArray(analysis.negatives) ? analysis.negatives.slice(0, 3) : ['Limited data available'],
-      recommendation: analysis.recommendation || 'Consider the sustainability factors when making your decision.'
+      recommendation: analysis.recommendation || 'Consider the sustainability factors when making your decision.',
+      metrics: analysis.metrics
     };
 
   } catch (error) {
@@ -152,5 +283,145 @@ export async function testNovitaConnection(): Promise<boolean> {
   } catch (error) {
     console.error('❌ Novita AI connection test failed:', error);
     return false;
+  }
+}
+
+interface AlternativeProduct {
+  name: string;
+  searchQuery: string;
+  reason: string;
+  ecoScore: number;
+  category: string;
+}
+
+interface AlternativesResult {
+  originalProduct: string;
+  originalIssues: string[];
+  alternatives: AlternativeProduct[];
+}
+
+/**
+ * Use AI to find genuinely sustainable alternatives (not just eco-tags)
+ * e.g., plastic bags → canvas bags, paper bags (actual different products)
+ */
+export async function findSustainableAlternatives(
+  productName: string, 
+  brand?: string,
+  category?: string
+): Promise<AlternativesResult> {
+  const prompt = `You are a sustainability expert. Find GENUINELY sustainable alternatives for this product.
+
+Original Product: ${productName}
+Brand: ${brand || 'Unknown'}
+Category: ${category || 'General'}
+
+IMPORTANT: DO NOT just add "eco-friendly" or "sustainable" to the same product type.
+Instead, suggest DIFFERENT product types that serve the same purpose but are inherently more sustainable.
+
+Examples of CORRECT suggestions:
+- Plastic bags → Canvas tote bags, Paper bags, Mesh produce bags
+- Disposable coffee cups → Reusable travel mugs, Glass coffee cups
+- Plastic water bottles → Stainless steel bottles, Glass bottles
+- Fast fashion T-shirt → Second-hand vintage, Organic cotton shirt from sustainable brand
+- Paper towels → Reusable cloth towels, Swedish dishcloths
+- Plastic straws → Metal straws, Bamboo straws, No straw
+
+Examples of WRONG suggestions (don't do these):
+- Plastic bags → Eco-friendly plastic bags ❌
+- Nike shoes → Sustainable Nike shoes ❌
+- Coffee cups → Green coffee cups ❌
+
+Respond with this JSON structure:
+{
+  "originalProduct": "${productName}",
+  "originalIssues": ["<2-3 sustainability problems with the original product>"],
+  "alternatives": [
+    {
+      "name": "<Descriptive product name>",
+      "searchQuery": "<Optimized Amazon search query>",
+      "reason": "<Why this is genuinely more sustainable>",
+      "ecoScore": <estimated 60-95>,
+      "category": "<product category>"
+    }
+  ]
+}
+
+Provide 4-5 diverse alternatives from different brands/materials.
+Focus on DIFFERENT product types or materials, not the same product with eco labels.
+Return ONLY valid JSON.`;
+
+  try {
+    console.log(`🔍 Finding sustainable alternatives for: ${productName}`);
+    
+    const response = await novita.chat.completions.create({
+      model: MODEL,
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a sustainability expert. Suggest genuinely different sustainable products, not the same product with eco labels. Return valid JSON only.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      temperature: 0.5,  // Slightly higher for creative suggestions
+      max_tokens: 800
+    });
+
+    const content = response.choices[0]?.message?.content || '';
+    console.log(`📝 Alternatives response received (${content.length} chars)`);
+
+    // Parse JSON response
+    let jsonStr = content.trim();
+    
+    if (jsonStr.includes('</think>')) {
+      jsonStr = jsonStr.split('</think>').pop() || jsonStr;
+    }
+    
+    jsonStr = jsonStr.trim();
+    if (jsonStr.startsWith('```json')) jsonStr = jsonStr.slice(7);
+    if (jsonStr.startsWith('```')) jsonStr = jsonStr.slice(3);
+    if (jsonStr.endsWith('```')) jsonStr = jsonStr.slice(0, -3);
+    jsonStr = jsonStr.trim();
+
+    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+    if (jsonMatch) jsonStr = jsonMatch[0];
+
+    const result = JSON.parse(jsonStr);
+
+    // Generate Amazon search URLs for each alternative
+    const alternatives = (result.alternatives || []).map((alt: AlternativeProduct, index: number) => ({
+      id: `alt-${index}`,
+      name: alt.name,
+      searchQuery: alt.searchQuery,
+      url: `https://www.amazon.com/s?k=${encodeURIComponent(alt.searchQuery)}`,
+      reason: alt.reason,
+      ecoScore: Math.min(95, Math.max(60, alt.ecoScore || 75)),
+      category: alt.category || 'General'
+    }));
+
+    return {
+      originalProduct: productName,
+      originalIssues: result.originalIssues || ['Sustainability concerns identified'],
+      alternatives
+    };
+
+  } catch (error) {
+    console.error('❌ Error finding alternatives:', error);
+    // Fallback to generic suggestions
+    return {
+      originalProduct: productName,
+      originalIssues: ['Unable to analyze specific issues'],
+      alternatives: [
+        {
+          name: `Sustainable ${productName.split(' ').slice(-2).join(' ')} alternative`,
+          searchQuery: `sustainable reusable ${productName.split(' ').slice(-2).join(' ')}`,
+          reason: 'Reusable and durable option',
+          ecoScore: 75,
+          category: 'General'
+        }
+      ]
+    };
   }
 }

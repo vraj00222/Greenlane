@@ -296,8 +296,8 @@ interface AmazonAlternative {
   searchQuery: string
   url: string
   ecoScore: number
-  keyword: string
-  description: string
+  reason: string
+  category: string
 }
 
 function AnalysisView({
@@ -784,10 +784,10 @@ function AnalysisView({
                 borderRadius: 8,
                 padding: 16,
                 border: "1px solid #10b981",
-                marginTop: analysis.sustainabilityTips?.length ? 12 : 0
+                marginTop: 16
               }}>
                 <h4 style={{ margin: "0 0 12px", fontSize: 14, color: "#065f46" }}>
-                  🌱 Eco Alternatives Found
+                  🌱 Better Sustainable Alternatives
                 </h4>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {amazonAlts.map((alt) => (
@@ -829,11 +829,12 @@ function AnalysisView({
                           {alt.name}
                         </p>
                         <p style={{
-                          margin: "2px 0 0",
+                          margin: "4px 0 0",
                           fontSize: 10,
-                          color: "#6b7280"
+                          color: "#047857",
+                          lineHeight: 1.3
                         }}>
-                          {alt.description}
+                          {alt.reason}
                         </p>
                       </div>
                       <span style={{
@@ -846,7 +847,7 @@ function AnalysisView({
                         marginLeft: 8,
                         whiteSpace: "nowrap"
                       }}>
-                        ~{alt.ecoScore}% eco →
+                        {alt.ecoScore}% →
                       </span>
                     </a>
                   ))}

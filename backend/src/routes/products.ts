@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import type { Router as RouterType } from 'express';
 import { Product } from '../models/index.js';
+import { findSustainableAlternatives } from '../services/novita.js';
 
 const router: RouterType = Router();
 
@@ -117,7 +118,7 @@ router.get('/stats/overview', async (_req: Request, res: Response) => {
 });
 
 // ============================================
-// POST /api/products/alternatives - Find eco alternatives on Amazon
+// POST /api/products/alternatives - AI-powered sustainable alternatives
 // ============================================
 router.post('/alternatives', async (req: Request, res: Response) => {
   try {
@@ -128,66 +129,17 @@ router.post('/alternatives', async (req: Request, res: Response) => {
       return;
     }
 
-    // Generate eco-friendly search queries based on category
-    const ecoKeywords: Record<string, string[]> = {
-      electronics: ['eco-friendly', 'energy efficient', 'sustainable', 'recycled materials'],
-      clothing: ['organic cotton', 'sustainable', 'eco-friendly', 'recycled materials', 'fair trade'],
-      footwear: ['sustainable', 'eco-friendly', 'vegan', 'recycled materials'],
-      beauty: ['organic', 'natural', 'eco-friendly', 'cruelty-free', 'sustainable'],
-      home: ['eco-friendly', 'sustainable', 'bamboo', 'recycled', 'biodegradable'],
-      kitchen: ['eco-friendly', 'sustainable', 'bamboo', 'reusable', 'compostable'],
-      sports: ['eco-friendly', 'sustainable', 'recycled materials', 'organic'],
-      default: ['eco-friendly', 'sustainable', 'green', 'environmentally friendly']
-    };
+    console.log(`🔍 Finding AI-powered alternatives for: ${productName}`);
 
-    // Detect category from product name if not provided
-    const productLower = productName.toLowerCase();
-    let detectedCategory = category || 'default';
-    
-    if (!category) {
-      if (productLower.includes('shoe') || productLower.includes('sneaker') || productLower.includes('boot')) {
-        detectedCategory = 'footwear';
-      } else if (productLower.includes('shirt') || productLower.includes('pants') || productLower.includes('dress') || productLower.includes('jacket')) {
-        detectedCategory = 'clothing';
-      } else if (productLower.includes('phone') || productLower.includes('laptop') || productLower.includes('gpu') || productLower.includes('computer')) {
-        detectedCategory = 'electronics';
-      } else if (productLower.includes('cup') || productLower.includes('bottle') || productLower.includes('kitchen') || productLower.includes('container')) {
-        detectedCategory = 'kitchen';
-      }
-    }
-
-    const keywords = ecoKeywords[detectedCategory] || ecoKeywords.default;
-    
-    // Extract product type (remove brand and model specifics)
-    const productType = productName
-      .replace(/[^\w\s]/g, '')
-      .split(' ')
-      .filter((word: string) => word.length > 2 && !word.match(/^\d+$/))
-      .slice(0, 3)
-      .join(' ');
-
-    // Generate alternative search suggestions
-    const alternatives = keywords.slice(0, 4).map((keyword, index) => {
-      const searchQuery = `${keyword} ${productType}`;
-      const amazonUrl = `https://www.amazon.com/s?k=${encodeURIComponent(searchQuery)}`;
-      
-      return {
-        id: `alt-${index}`,
-        name: `${keyword.charAt(0).toUpperCase() + keyword.slice(1)} ${productType}`,
-        searchQuery,
-        url: amazonUrl,
-        ecoScore: 70 + Math.floor(Math.random() * 20), // Estimated score 70-90
-        keyword,
-        description: `Shop for ${keyword} alternatives on Amazon`
-      };
-    });
+    // Use AI to find genuinely sustainable alternatives
+    const result = await findSustainableAlternatives(productName, brand, category);
 
     res.json({
       success: true,
       data: {
-        originalProduct: productName,
-        category: detectedCategory,
-        alternatives
+        originalProduct: result.originalProduct,
+        originalIssues: result.originalIssues,
+        alternatives: result.alternatives
       }
     });
   } catch (error) {
