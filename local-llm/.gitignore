@@ -1,0 +1,24 @@
+# Build files
+build/
+cmake-build-*/
+
+# Model files (large, not tracked)
+models/**/*.pte
+models/**/*.bin
+models/**/*.gguf
+models/**/*.onnx
+models/**/*.safetensors
+models/**/*.ipynb
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store

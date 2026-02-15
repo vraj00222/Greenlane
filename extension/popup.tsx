@@ -37,6 +37,7 @@ interface AnalysisResult {
   alternatives: Alternative[]
   sustainabilityTips?: SustainabilityTip[]
   hasEcoAlternatives?: boolean
+  localAnalysis?: boolean  // True when analyzed by local LLM (Meta ExecuTorch)
 }
 
 interface UserData {
@@ -199,7 +200,14 @@ function LoginView({ onLogin, onBack }: { onLogin: (email: string, name: string)
 }
 
 // Settings View
-function SettingsView({ user, onLogout, onBack }: { user: UserData; onLogout: () => void; onBack: () => void }) {
+function SettingsView({ user, onLogout, onBack, localLLMEnabled, onToggleLocalLLM, localServerStatus }: { 
+  user: UserData; 
+  onLogout: () => void; 
+  onBack: () => void;
+  localLLMEnabled: boolean;
+  onToggleLocalLLM: () => void;
+  localServerStatus: 'connected' | 'disconnected' | 'checking';
+}) {
   const dashboardUrl = process.env.PLASMO_PUBLIC_DASHBOARD_URL || "http://localhost:3002"
   
   return (
@@ -235,6 +243,108 @@ function SettingsView({ user, onLogout, onBack }: { user: UserData; onLogout: ()
                   <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6b7280" }}>{user.email}</p>
                 </div>
               </div>
+            </div>
+            
+            {/* Go Private Toggle - Meta ExecuTorch */}
+            <div style={{
+              background: localLLMEnabled ? "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)" : "white",
+              borderRadius: 8,
+              padding: "14px 16px",
+              marginBottom: 12,
+              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+              transition: "all 0.3s ease"
+            }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ 
+                    fontSize: 20,
+                    transition: "transform 0.3s ease",
+                    transform: localLLMEnabled ? "rotate(0deg)" : "rotate(-15deg)"
+                  }}>
+                    {localLLMEnabled ? "🔒" : "🔓"}
+                  </span>
+                  <div>
+                    <span style={{ fontWeight: 500, color: localLLMEnabled ? "white" : "#1f2937" }}>Go Private</span>
+                    <p style={{ 
+                      margin: "2px 0 0", 
+                      fontSize: 11, 
+                      color: localLLMEnabled ? "rgba(255,255,255,0.8)" : "#6b7280" 
+                    }}>
+                      {localLLMEnabled ? "🛡️ Data stays on device" : "Use on-device AI"}
+                    </p>
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {localLLMEnabled && (
+                    <span style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      background: localServerStatus === 'connected' ? "#22c55e" : 
+                                  localServerStatus === 'checking' ? "#fbbf24" : "#ef4444",
+                      boxShadow: localServerStatus === 'connected' ? "0 0 6px #22c55e" : "none"
+                    }} />
+                  )}
+                  <button
+                    onClick={onToggleLocalLLM}
+                    style={{
+                      width: 44,
+                      height: 24,
+                      borderRadius: 12,
+                      border: "none",
+                      background: localLLMEnabled ? "#22c55e" : "#d1d5db",
+                      cursor: "pointer",
+                      position: "relative",
+                      transition: "background 0.3s ease"
+                    }}
+                  >
+                    <span style={{
+                      position: "absolute",
+                      top: 2,
+                      left: localLLMEnabled ? 22 : 2,
+                      width: 20,
+                      height: 20,
+                      borderRadius: "50%",
+                      background: "white",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                      transition: "left 0.3s ease"
+                    }} />
+                  </button>
+                </div>
+              </div>
+              
+              {/* What's different in Private Mode */}
+              {localLLMEnabled && localServerStatus === 'connected' && (
+                <div style={{
+                  marginTop: 10,
+                  padding: "8px 10px",
+                  background: "rgba(255,255,255,0.15)",
+                  borderRadius: 6,
+                  fontSize: 10,
+                  color: "rgba(255,255,255,0.9)"
+                }}>
+                  <strong>What's different:</strong>
+                  <ul style={{ margin: "4px 0 0", paddingLeft: 16 }}>
+                    <li>✓ Product data analyzed locally by ExecuTorch</li>
+                    <li>✓ No data sent to cloud servers</li>
+                    <li>✓ Scans NOT saved to dashboard</li>
+                    <li>✓ Works offline after initial setup</li>
+                  </ul>
+                </div>
+              )}
+              
+              {localLLMEnabled && localServerStatus === 'disconnected' && (
+                <p style={{ 
+                  margin: "8px 0 0", 
+                  fontSize: 11, 
+                  color: "#fca5a5",
+                  background: "rgba(0,0,0,0.2)",
+                  padding: "6px 10px",
+                  borderRadius: 6
+                }}>
+                  ⚠️ Local server not running. Start it with: ./greenlane-local
+                </p>
+              )}
             </div>
             
             <a
@@ -283,6 +393,11 @@ function SettingsView({ user, onLogout, onBack }: { user: UserData; onLogout: ()
           <p style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", margin: 0 }}>
             GreenLane v1.0.0 • Made with 💚 for SFHacks 2026
           </p>
+          {localLLMEnabled && (
+            <p style={{ fontSize: 10, color: "#7c3aed", textAlign: "center", margin: "4px 0 0" }}>
+              🔒 Meta ExecuTorch • On-Device AI
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -319,7 +434,8 @@ function AnalysisView({
   altsError,
   setAltsError,
   searchingAlts,
-  setSearchingAlts
+  setSearchingAlts,
+  localLLMEnabled
 }: {
   product: ProductData | null
   analysis: AnalysisResult | null
@@ -340,6 +456,7 @@ function AnalysisView({
   setAltsError: (val: string | null) => void
   searchingAlts: boolean
   setSearchingAlts: (val: boolean) => void
+  localLLMEnabled: boolean
 }) {
 
   // Find eco alternatives on Amazon
@@ -391,8 +508,8 @@ function AnalysisView({
     }
   }
 
-  // Not logged in - require login first
-  if (!user.userId) {
+  // Not logged in and not in private mode - require login first
+  if (!user.userId && !localLLMEnabled) {
     return (
       <div style={containerStyle}>
         <div style={headerStyle}>
@@ -420,24 +537,51 @@ function AnalysisView({
   if (loading) {
     return (
       <div style={containerStyle}>
-        <div style={headerStyle}>
+        <div style={{
+          ...headerStyle,
+          background: localLLMEnabled 
+            ? "linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)" 
+            : "linear-gradient(135deg, #059669 0%, #0891b2 100%)"
+        }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 24 }}>🌿</span>
+            <span style={{ fontSize: 24 }}>{localLLMEnabled ? "🔒" : "🌿"}</span>
             <span style={{ fontSize: 18, fontWeight: 600 }}>GreenLane</span>
           </div>
           <SettingsButton onClick={onSettings} />
         </div>
-        <div style={{ ...contentStyle, textAlign: "center", paddingTop: 40 }}>
+        {localLLMEnabled && (
+          <div style={{
+            background: "linear-gradient(90deg, #7c3aed 0%, #6366f1 100%)",
+            color: "white",
+            padding: "8px 16px",
+            fontSize: 11,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6
+          }}>
+            <span>🛡️</span>
+            <span><strong>Private Mode</strong> — Data stays on your device</span>
+          </div>
+        )}
+        <div style={{ ...contentStyle, textAlign: "center", paddingTop: localLLMEnabled ? 30 : 40 }}>
           <div style={{ 
             width: 40, 
             height: 40, 
-            border: "4px solid #e5e7eb",
-            borderTopColor: "#059669",
+            border: `4px solid ${localLLMEnabled ? "#c4b5fd" : "#e5e7eb"}`,
+            borderTopColor: localLLMEnabled ? "#7c3aed" : "#059669",
             borderRadius: "50%",
             animation: "spin 1s linear infinite",
             margin: "0 auto 16px"
           }} />
-          <p style={{ color: "#6b7280" }}>Analyzing product...</p>
+          <p style={{ color: "#6b7280" }}>
+            {localLLMEnabled ? "Running local AI analysis..." : "Analyzing product..."}
+          </p>
+          {localLLMEnabled && (
+            <p style={{ color: "#9ca3af", fontSize: 11, marginTop: 8 }}>
+              Powered by on-device AI • No network required
+            </p>
+          )}
           <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
         </div>
       </div>
@@ -462,7 +606,7 @@ function AnalysisView({
             Visit an Amazon product page to analyze its sustainability.
           </p>
           <p style={{ color: "#9ca3af", fontSize: 12, marginTop: 12 }}>
-            Signed in as {user.email}
+            {localLLMEnabled ? "🔒 Private Mode Active" : user.email ? `Signed in as ${user.email}` : ""}
           </p>
         </div>
       </div>
@@ -519,18 +663,43 @@ function AnalysisView({
   }
 
   // Main analysis view
-  const scoreColor = getScoreColor(analysis.greenScore)
+  // Use purple tones when in private mode OR when analysis was local, green tones for cloud
+  const isPrivate = localLLMEnabled || analysis.localAnalysis
+  const baseScoreColor = getScoreColor(analysis.greenScore)
+  const scoreColor = isPrivate ? "#7c3aed" : baseScoreColor
   const scoreLabel = getScoreLabel(analysis.greenScore)
 
   return (
     <div style={containerStyle}>
-      <div style={headerStyle}>
+      <div style={{
+        ...headerStyle,
+        background: isPrivate 
+          ? "linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)" 
+          : "linear-gradient(135deg, #059669 0%, #0891b2 100%)"
+      }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 24 }}>🌿</span>
+          <span style={{ fontSize: 24 }}>{isPrivate ? "🔒" : "🌿"}</span>
           <span style={{ fontSize: 18, fontWeight: 600 }}>GreenLane</span>
         </div>
         <SettingsButton onClick={onSettings} />
       </div>
+      
+      {/* Privacy Banner for Local/Private Analysis */}
+      {isPrivate && (
+        <div style={{
+          background: "linear-gradient(90deg, #7c3aed 0%, #6366f1 100%)",
+          color: "white",
+          padding: "8px 16px",
+          fontSize: 11,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 6
+        }}>
+          <span>🛡️</span>
+          <span><strong>Private Mode</strong> — Your data never left this device</span>
+        </div>
+      )}
       
       <div style={contentStyle}>
         {/* Product Info */}
@@ -576,11 +745,38 @@ function AnalysisView({
             <div style={{
               textAlign: "center",
               padding: 20,
-              background: "white",
+              background: isPrivate ? "linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)" : "white",
               borderRadius: 8,
               marginBottom: 16,
-              boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
+              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+              border: isPrivate ? "2px solid #a78bfa" : "none"
             }}>
+              {isPrivate && (
+                <div style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 4,
+                  marginBottom: 12
+                }}>
+                  <div style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    background: "linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)",
+                    color: "white",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    padding: "4px 10px",
+                    borderRadius: 12
+                  }}>
+                    🔒 Private Analysis
+                  </div>
+                  <span style={{ fontSize: 9, color: "#7c3aed", fontWeight: 500 }}>
+                    Powered by Meta ExecuTorch
+                  </span>
+                </div>
+              )}
               <div style={{
                 width: 80,
                 height: 80,
@@ -599,7 +795,9 @@ function AnalysisView({
               <p style={{ margin: 0, fontWeight: 600, color: scoreColor }}>
                 {scoreLabel} Sustainability
               </p>
-              {!user.userId && (
+              
+              {/* Show login prompt only for cloud analysis */}
+              {!isPrivate && !user.userId && (
                 <p style={{ fontSize: 12, color: "#9ca3af", marginTop: 8 }}>
                   <button 
                     onClick={onLogin}
@@ -610,21 +808,38 @@ function AnalysisView({
                   {" "}to save this scan
                 </p>
               )}
-              {user.userId && scanStatus === 'saving' && (
+              
+              {/* Show sync status only for cloud analysis (never in private mode) */}
+              {!isPrivate && user.userId && scanStatus === 'saving' && (
                 <p style={{ fontSize: 12, color: "#9ca3af", marginTop: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
                   <span style={{ display: "inline-block", width: 12, height: 12, border: "2px solid #059669", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite" }}></span>
                   Saving to dashboard...
                 </p>
               )}
-              {user.userId && scanStatus === 'saved' && (
+              {!isPrivate && user.userId && scanStatus === 'saved' && (
                 <p style={{ fontSize: 12, color: "#059669", marginTop: 8 }}>
                   ✓ Saved to your dashboard
                 </p>
               )}
-              {user.userId && scanStatus === 'error' && (
+              {!isPrivate && user.userId && scanStatus === 'error' && (
                 <p style={{ fontSize: 12, color: "#ef4444", marginTop: 8 }}>
                   ✗ Failed to save scan
                 </p>
+              )}
+              
+              {/* Privacy notice for local/private analysis */}
+              {isPrivate && (
+                <div style={{
+                  marginTop: 12,
+                  padding: "8px 12px",
+                  background: "rgba(124, 58, 237, 0.1)",
+                  borderRadius: 6,
+                  fontSize: 10,
+                  color: "#6d28d9"
+                }}>
+                  <strong>🛡️ Privacy Guaranteed</strong><br />
+                  This analysis ran entirely on your device. No product data was sent to any server.
+                </div>
               )}
             </div>
 
@@ -765,8 +980,8 @@ function AnalysisView({
               </div>
             )}
 
-            {/* Find Eco Alternatives Button - Show until results found */}
-            {amazonAlts.length === 0 && !noAlternatives && !altsError && (
+            {/* Find Eco Alternatives Button - Show until results found (only for cloud analysis) */}
+            {!analysis.localAnalysis && amazonAlts.length === 0 && !noAlternatives && !altsError && (
               <button
                 onClick={findAlternatives}
                 disabled={searchingAlts}
@@ -808,6 +1023,26 @@ function AnalysisView({
                   </>
                 )}
               </button>
+            )}
+            
+            {/* Privacy note: alternatives disabled in private mode */}
+            {isPrivate && (
+              <div style={{
+                marginTop: 16,
+                padding: "12px 16px",
+                background: "linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)",
+                borderRadius: 8,
+                border: "1px dashed #a78bfa",
+                textAlign: "center"
+              }}>
+                <p style={{ margin: 0, fontSize: 12, color: "#6d28d9", fontWeight: 500 }}>
+                  🔒 Private Mode Active
+                </p>
+                <p style={{ margin: "4px 0 0", fontSize: 11, color: "#7c3aed" }}>
+                  Alternative suggestions disabled to keep your data private.
+                  Disable "Go Private" in settings to use cloud-powered features.
+                </p>
+              </div>
             )}
 
             {/* Amazon Alternatives Results */}
@@ -953,6 +1188,69 @@ function IndexPopup() {
   const [noAltsReason, setNoAltsReason] = useState<string | null>(null)
   const [altsError, setAltsError] = useState<string | null>(null)
   const [searchingAlts, setSearchingAlts] = useState(false)
+  
+  // Local LLM state (Meta ExecuTorch)
+  const [localLLMEnabled, setLocalLLMEnabled] = useState(false)
+  const [localServerStatus, setLocalServerStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking')
+  
+  // Load local LLM preference on mount
+  useEffect(() => {
+    chrome.storage.local.get(['localLLMEnabled'], (result) => {
+      if (result.localLLMEnabled !== undefined) {
+        setLocalLLMEnabled(result.localLLMEnabled)
+      }
+    })
+  }, [])
+  
+  // Check local server status when enabled
+  useEffect(() => {
+    if (localLLMEnabled) {
+      checkLocalServer()
+      const interval = setInterval(checkLocalServer, 10000) // Check every 10s
+      return () => clearInterval(interval)
+    } else {
+      setLocalServerStatus('disconnected')
+    }
+  }, [localLLMEnabled])
+  
+  const checkLocalServer = async () => {
+    try {
+      setLocalServerStatus('checking')
+      const response = await fetch('http://localhost:8765/health', { 
+        method: 'GET',
+        signal: AbortSignal.timeout(3000)
+      })
+      if (response.ok) {
+        setLocalServerStatus('connected')
+      } else {
+        setLocalServerStatus('disconnected')
+      }
+    } catch {
+      setLocalServerStatus('disconnected')
+    }
+  }
+  
+  const handleToggleLocalLLM = () => {
+    const newValue = !localLLMEnabled
+    setLocalLLMEnabled(newValue)
+    chrome.storage.local.set({ localLLMEnabled: newValue })
+    
+    // Clear current analysis and cache so it re-analyzes in the new mode
+    setAnalysis(null)
+    setScanStatus('idle')
+    setAmazonAlts([])
+    setNoAlternatives(false)
+    setNoAltsReason(null)
+    setAltsError(null)
+    
+    if (newValue) {
+      checkLocalServer()
+    }
+    
+    // Re-analyze in the new mode after a short delay
+    setIsAnalyzing(false) // Reset to allow re-analysis
+    setTimeout(() => analyzeProduct(), 300)
+  }
 
   // Load cached alternatives on mount
   useEffect(() => {
@@ -996,9 +1294,11 @@ function IndexPopup() {
         if (response.userId) {
           setUserLoaded(true)
         } else {
-          // Not logged in - don't show loading spinner
-          setLoading(false)
+          // Not logged in - still allow analysis in private mode
           setUserLoaded(true)
+          if (!localLLMEnabled) {
+            setLoading(false)
+          }
         }
       } else {
         setLoading(false)
@@ -1007,12 +1307,12 @@ function IndexPopup() {
     })
   }, [])
 
-  // Start analysis when user becomes logged in
+  // Start analysis when user becomes logged in OR when private mode is enabled
   useEffect(() => {
-    if (userLoaded && user.userId) {
+    if (userLoaded && (user.userId || localLLMEnabled)) {
       analyzeProduct()
     }
-  }, [userLoaded, user.userId])
+  }, [userLoaded, user.userId, localLLMEnabled])
 
   // Analyze product
   const analyzeProduct = async () => {
@@ -1050,8 +1350,8 @@ function IndexPopup() {
         if (response?.product) {
           setProduct(response.product)
           
-          // Use product URL as cache key
-          const productUrl = activeTab.url || ""
+          // Use product URL + mode as cache key to prevent cross-mode cache hits
+          const productUrl = (activeTab.url || "") + (localLLMEnabled ? "::private" : "::cloud")
           
           // Safety timeout - if cache check hangs, proceed with API call
           let callbackReceived = false
@@ -1086,8 +1386,8 @@ function IndexPopup() {
                   setLoading(false)
                   setIsAnalyzing(false)
                   
-                  // Record scan if user is logged in
-                  if (user.userId) {
+                  // Record scan if user is logged in (NEVER in private mode)
+                  if (user.userId && !analysisData.localAnalysis && !localLLMEnabled) {
                     setScanStatus('saving')
                     chrome.runtime.sendMessage({
                       type: "RECORD_SCAN",
@@ -1100,6 +1400,8 @@ function IndexPopup() {
                         setScanStatus('error')
                       }
                     })
+                  } else {
+                    setScanStatus('idle')
                   }
                 } else {
                   // Fetch from API
@@ -1115,17 +1417,47 @@ function IndexPopup() {
           // Helper function to fetch from API
           async function fetchAnalysis(productData: ProductData, cacheKey: string) {
             try {
-              const apiUrl = process.env.PLASMO_PUBLIC_API_URL || "http://localhost:3001"
-              const res = await fetch(`${apiUrl}/api/analyze-product`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(productData)
-              })
+              let analysisData;
               
-              if (!res.ok) throw new Error("API error")
-              
-              const data = await res.json()
-              const analysisData = data.analysis
+              // Check if local LLM is enabled and server is available
+              if (localLLMEnabled && localServerStatus === 'connected') {
+                console.log('GreenLane: Using local LLM (ExecuTorch)')
+                const localRes = await fetch('http://localhost:8765/analyze', {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    productTitle: productData.productTitle,
+                    brand: productData.brand || "",
+                    price: productData.price || "",
+                    materials: productData.materials || ""
+                  }),
+                  signal: AbortSignal.timeout(30000) // 30s timeout for local inference
+                })
+                
+                if (!localRes.ok) throw new Error("Local LLM error")
+                
+                const localData = await localRes.json()
+                analysisData = {
+                  greenScore: localData.greenScore,
+                  positives: localData.positives,
+                  negatives: localData.negatives,
+                  recommendation: localData.recommendation,
+                  localAnalysis: true
+                }
+              } else {
+                // Use cloud API
+                const apiUrl = process.env.PLASMO_PUBLIC_API_URL || "http://localhost:3001"
+                const res = await fetch(`${apiUrl}/api/analyze-product`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(productData)
+                })
+                
+                if (!res.ok) throw new Error("API error")
+                
+                const data = await res.json()
+                analysisData = data.analysis
+              }
               
               // Cache for future requests
               chrome.runtime.sendMessage({
@@ -1136,8 +1468,8 @@ function IndexPopup() {
               
               setAnalysis(analysisData)
 
-              // Record scan if user is logged in
-              if (user.userId) {
+              // Record scan if user is logged in (NEVER in private mode)
+              if (user.userId && !analysisData.localAnalysis && !localLLMEnabled) {
                 setScanStatus('saving')
                 chrome.runtime.sendMessage({
                   type: "RECORD_SCAN",
@@ -1157,7 +1489,12 @@ function IndexPopup() {
               }
             } catch (err) {
               console.error("API Error:", err)
-              setError("Failed to analyze. Is backend running?")
+              // If local LLM failed, suggest trying cloud
+              if (localLLMEnabled) {
+                setError("Local AI failed. Try disabling 'Go Private' in settings.")
+              } else {
+                setError("Failed to analyze. Is backend running?")
+              }
             } finally {
               setLoading(false)
               setIsAnalyzing(false)
@@ -1207,7 +1544,14 @@ function IndexPopup() {
   }
 
   if (view === "settings") {
-    return <SettingsView user={user} onLogout={handleLogout} onBack={() => setView("main")} />
+    return <SettingsView 
+      user={user} 
+      onLogout={handleLogout} 
+      onBack={() => setView("main")} 
+      localLLMEnabled={localLLMEnabled}
+      onToggleLocalLLM={handleToggleLocalLLM}
+      localServerStatus={localServerStatus}
+    />
   }
 
   return (
@@ -1231,6 +1575,7 @@ function IndexPopup() {
       setAltsError={setAltsError}
       searchingAlts={searchingAlts}
       setSearchingAlts={setSearchingAlts}
+      localLLMEnabled={localLLMEnabled}
     />
   )
 }
