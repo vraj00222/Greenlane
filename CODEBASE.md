@@ -199,24 +199,6 @@ Meta ExecuTorch + Llama 3.2 1B running locally in a Docker container for privacy
 |------|-------------|
 | `server_docker.py` | **Main inference server** (~640 lines, port 8765). Loads the Llama 3.2 1B `.pte` model via ExecuTorch runtime with custom ops (`llama::custom_sdpa.out`, `llama::update_cache.out`) loaded through `ctypes`. Uses `pytorch_tokenizers.TiktokenTokenizer` for encoding. Generates sustainability analysis with completion-style prompting, extracts scores via regex, and blends 60% LLM score + 40% keyword score. Provides `/analyze` and `/health` endpoints. Reloads model per inference to reset KV cache. Suppresses EOS tokens during generation. |
 
-### Model Export Scripts
-
-| File | Description |
-|------|-------------|
-| `export_executorch_model.py` | Script to export a custom `SustainabilityScorer` neural network (keyword-feature-based, 64→128→1 architecture) to ExecuTorch `.pte` format. |
-| `export_model.py` | Script to export SmolLM (135M param) or other HuggingFace models to ExecuTorch `.pte` format using `torch.export` and the EXIR pipeline. |
-
-### C++ Engine (Alternative Backend)
-
-| File | Description |
-|------|-------------|
-| `src/inference.h` | C++ header defining `InferenceEngine` class (pimpl pattern) with `loadModel()`, `analyze()`, and stat methods. Declares `SustainabilityAnalysis` and `ProductData` structs. |
-| `src/inference.cpp` | C++ `InferenceEngine` implementation. Builds sustainability prompts, runs keyword-based inference (with optional ExecuTorch backend when compiled with `USE_EXECUTORCH`), and parses JSON analysis results. |
-| `src/tokenizer.h` | C++ header for `Tokenizer` class with encode/decode methods (pimpl pattern). |
-| `src/tokenizer.cpp` | C++ tokenizer implementation. Simple whitespace-based mock tokenizer with hash-based token IDs (placeholder for full SentencePiece integration). |
-| `src/main.cpp` | C++ HTTP server using cpp-httplib. Exposes `/analyze`, `/health`, and CORS-enabled endpoints. Loads the ExecuTorch model and delegates to `InferenceEngine`. |
-| `CMakeLists.txt` | CMake build config for the C++ inference server. Links ExecuTorch libraries when available, falls back to mock inference. |
-
 ### Docker & DevOps
 
 | File | Description |
@@ -224,8 +206,6 @@ Meta ExecuTorch + Llama 3.2 1B running locally in a Docker container for privacy
 | `Dockerfile` | Multi-stage Docker image building ExecuTorch with XNNPACK delegate on Python 3.11-slim for ARM64 Llama inference. Installs `executorch`, `pytorch-tokenizers`, and `tiktoken`. |
 | `docker-compose.yml` | Docker Compose config running the ExecuTorch LLM container on port 8765 with the Llama 3.2 1B model and `server_docker.py` volume-mounted. Targets `linux/arm64`. |
 | `docker-run.sh` | Shell script that checks prerequisites, tries pulling the pre-built `psiddh/executorch-hackathon:basic-arm64` image, falls back to building from the Dockerfile, and starts the container with volume mounts. |
-| `setup_executorch.sh` | Setup script that downloads the Llama 3.2 1B `.pte` model (~2.3GB) and tokenizer from HuggingFace, then checks/installs the ExecuTorch runtime. |
-| `scripts/download_model.sh` | Standalone script to download the Llama 3.2 1B ET model files from HuggingFace. |
 
 ### Model Files
 

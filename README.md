@@ -107,8 +107,7 @@ greenlane/
 │   ├── server_docker.py    # Python inference server (Llama 3.2 1B, port 8765)
 │   ├── Dockerfile          # ExecuTorch Docker image (ARM64)
 │   ├── docker-compose.yml  # One-command container startup
-│   ├── models/             # Model metadata + tokenizer (2.3GB .pte excluded)
-│   └── src/                # C++ inference engine (alternative backend)
+│   └── models/             # Model metadata + tokenizer (2.3GB .pte excluded)
 ├── shared/                 # Shared TypeScript types
 │   └── types/index.ts      # ProductData, SustainabilityAnalysis, etc.
 └── README.md

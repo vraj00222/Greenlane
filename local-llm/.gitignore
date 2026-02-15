@@ -1,7 +1,3 @@
-# Build files
-build/
-cmake-build-*/
-
 # Model files (large, not tracked)
 models/**/*.pte
 models/**/*.bin
