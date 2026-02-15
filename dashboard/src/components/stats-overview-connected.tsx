@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadialBarChart, RadialBar, ResponsiveContainer } from "recharts";
-import { Leaf, Package, Wind, Flame, Loader2 } from "lucide-react";
+import { Leaf, Package, Wind, Loader2 } from "lucide-react";
 import { useCurrentUser } from "@/lib/user-context";
 
 function getScoreColor(score: number): string {
@@ -24,8 +24,8 @@ export function StatsOverviewConnected() {
 
   if (isLoading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {[...Array(4)].map((_, i) => (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {[...Array(3)].map((_, i) => (
           <Card key={i} className="animate-pulse">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <div className="h-4 w-24 bg-muted rounded" />
@@ -61,9 +61,9 @@ export function StatsOverviewConnected() {
   ];
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {/* Eco Score Card with Radial Chart */}
-      <Card className="col-span-1 md:col-span-2 lg:col-span-1">
+      <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-sm font-medium">Avg Eco-Score</CardTitle>
           <Leaf className="h-4 w-4 text-green-600" />
@@ -114,30 +114,21 @@ export function StatsOverviewConnected() {
         </CardContent>
       </Card>
 
-      {/* Carbon Saved */}
-      <Card>
+      {/* Carbon Saved - Coming Soon */}
+      <Card className="relative overflow-hidden">
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <span className="text-sm font-medium text-muted-foreground px-3 py-1 rounded-full bg-muted">
+            Coming Soon
+          </span>
+        </div>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-sm font-medium">CO₂ Saved</CardTitle>
           <Wind className="h-4 w-4 text-emerald-600" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{stats.carbonSaved.toFixed(1)} kg</div>
+          <div className="text-2xl font-bold">— kg</div>
           <p className="text-xs text-muted-foreground">
-            {stats.carbonSaved > 0 ? 'Great impact!' : 'Make eco choices to save'}
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* Current Streak */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium">Current Streak</CardTitle>
-          <Flame className="h-4 w-4 text-orange-500" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats.currentStreak} days</div>
-          <p className="text-xs text-muted-foreground">
-            {stats.currentStreak > 0 ? 'Keep it up!' : 'Scan daily to start streak'}
+            Track your real impact
           </p>
         </CardContent>
       </Card>
