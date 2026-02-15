@@ -6,6 +6,8 @@
 #include <sstream>
 #include <fstream>
 #include <regex>
+#include <optional>
+#include <algorithm>
 
 #ifdef USE_EXECUTORCH
 #include <executorch/runtime/executor/program.h>
