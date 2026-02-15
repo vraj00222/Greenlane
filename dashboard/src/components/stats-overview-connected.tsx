@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadialBarChart, RadialBar, ResponsiveContainer } from "recharts";
-import { Leaf, Package, Wind, Loader2 } from "lucide-react";
+import { Leaf, Package, Loader2 } from "lucide-react";
 import { useCurrentUser } from "@/lib/user-context";
 
 function getScoreColor(score: number): string {
@@ -24,8 +24,8 @@ export function StatsOverviewConnected() {
 
   if (isLoading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {[...Array(3)].map((_, i) => (
+      <div className="grid gap-4 md:grid-cols-2">
+        {[...Array(2)].map((_, i) => (
           <Card key={i} className="animate-pulse">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <div className="h-4 w-24 bg-muted rounded" />
@@ -61,7 +61,7 @@ export function StatsOverviewConnected() {
   ];
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-2">
       {/* Eco Score Card with Radial Chart */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -110,25 +110,6 @@ export function StatsOverviewConnected() {
           <div className="text-2xl font-bold">{stats.totalScans}</div>
           <p className="text-xs text-muted-foreground">
             {stats.totalScans === 0 ? 'Start scanning!' : 'Total items analyzed'}
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* Carbon Saved - Coming Soon */}
-      <Card className="relative overflow-hidden">
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-          <span className="text-sm font-medium text-muted-foreground px-3 py-1 rounded-full bg-muted">
-            Coming Soon
-          </span>
-        </div>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium">CO₂ Saved</CardTitle>
-          <Wind className="h-4 w-4 text-emerald-600" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">— kg</div>
-          <p className="text-xs text-muted-foreground">
-            Track your real impact
           </p>
         </CardContent>
       </Card>
