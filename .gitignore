@@ -116,3 +116,7 @@ __pycache__/
 .cache/
 .parcel-cache/
 .turbo/
+
+# Presentation files
+PRESENTATION_GUIDE.md
+PRESENTATION_SCRIPT.md
