@@ -146,7 +146,13 @@ router.post('/alternatives', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error finding alternatives:', error);
-    res.status(500).json({ success: false, error: 'Failed to find alternatives' });
+    // Return error flag so extension can show "try again" vs "no alternatives exist"
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to find alternatives',
+      isError: true,
+      message: 'AI service temporarily unavailable. Please wait a moment and try again.'
+    });
   }
 });
 

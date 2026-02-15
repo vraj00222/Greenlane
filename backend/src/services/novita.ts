@@ -438,13 +438,7 @@ Return ONLY valid JSON. No markdown.`;
 
   } catch (error) {
     console.error('❌ Error finding alternatives:', error);
-    // Fallback - try to give generic suggestions
-    return {
-      originalProduct: productName,
-      originalIssues: ['Unable to analyze specific issues'],
-      alternatives: [],
-      noAlternatives: true,
-      noAlternativesReason: 'Unable to find alternatives at this time. Please try again.'
-    };
+    // Throw error to distinguish from genuine "no alternatives" case
+    throw error;
   }
 }

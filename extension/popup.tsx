@@ -349,22 +349,28 @@ function AnalysisView({
 
       const data = await response.json()
       
+      // Check for API error (rate limit, network issue, etc.)
+      if (!response.ok || data.isError) {
+        setAltsError(data.message || "AI service temporarily unavailable. Please wait and try again.")
+        return
+      }
+      
       if (data.success && data.data) {
         if (data.data.noAlternatives) {
-          // Product has no sustainable alternatives
+          // Product genuinely has no sustainable alternatives (e.g., GPU, medical device)
           setNoAlternatives(true)
           setNoAltsReason(data.data.noAlternativesReason || "This product type doesn't have sustainable alternatives.")
         } else if (data.data.alternatives && data.data.alternatives.length > 0) {
           setAmazonAlts(data.data.alternatives)
         } else {
-          setAltsError("No alternatives found")
+          setAltsError("No alternatives found. Try again in a moment.")
         }
       } else {
-        setAltsError("No alternatives found")
+        setAltsError(data.message || "No alternatives found")
       }
     } catch (err) {
       console.error("Error finding alternatives:", err)
-      setAltsError("Failed to search for alternatives")
+      setAltsError("Network error. Please check connection and try again.")
     } finally {
       setSearchingAlts(false)
     }
