@@ -367,27 +367,35 @@ Respond with this exact JSON:
 
 Return ONLY valid JSON. No markdown.`;
 
-  try {
-    console.log(`🔍 AI analyzing alternatives for: ${productName}`);
-    
-    const response = await novita.chat.completions.create({
-      model: MODEL,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a sustainability expert. Your job is to determine if a product has genuinely different sustainable alternatives. For tech hardware, automotive parts, medical items, and other specialized products - acknowledge that no sustainable alternatives exist. For everyday consumer goods with disposable/wasteful versions - suggest reusable or sustainable alternatives. Return valid JSON only.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      temperature: 0.4,  // Slightly lower for more consistent decisions
-      max_tokens: 1200
-    });
+  // Helper to delay execution
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+  
+  // Retry with exponential backoff
+  const maxRetries = 3;
+  let lastError: Error | null = null;
 
-    const content = response.choices[0]?.message?.content || '';
-    console.log(`📝 Alternatives response received (${content.length} chars)`);
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`🔍 AI analyzing alternatives for: ${productName} (attempt ${attempt}/${maxRetries})`);
+      
+      const response = await novita.chat.completions.create({
+        model: MODEL,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a sustainability expert. Your job is to determine if a product has genuinely different sustainable alternatives. For tech hardware, automotive parts, medical items, and other specialized products - acknowledge that no sustainable alternatives exist. For everyday consumer goods with disposable/wasteful versions - suggest reusable or sustainable alternatives. Return valid JSON only.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.4,
+        max_tokens: 1200
+      });
+
+      const content = response.choices[0]?.message?.content || '';
+      console.log(`📝 Alternatives response received (${content.length} chars)`);
 
     // Parse JSON response
     let jsonStr = content.trim();
@@ -436,9 +444,19 @@ Return ONLY valid JSON. No markdown.`;
       noAlternatives: alternatives.length === 0
     };
 
-  } catch (error) {
-    console.error('❌ Error finding alternatives:', error);
-    // Throw error to distinguish from genuine "no alternatives" case
-    throw error;
+    } catch (error) {
+      lastError = error as Error;
+      console.error(`❌ Attempt ${attempt} failed:`, error);
+      
+      if (attempt < maxRetries) {
+        const waitTime = attempt * 2000; // 2s, 4s, 6s
+        console.log(`⏳ Waiting ${waitTime}ms before retry...`);
+        await delay(waitTime);
+      }
+    }
   }
+
+  // All retries failed
+  console.error('❌ All retry attempts failed for alternatives');
+  throw lastError || new Error('Failed to find alternatives after retries');
 }
